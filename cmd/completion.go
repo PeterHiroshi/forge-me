@@ -9,19 +9,19 @@ import (
 var completionCmd = &cobra.Command{
 	Use:   "completion [bash|zsh|fish|powershell]",
 	Short: "Generate shell completion script",
-	Long: `Generate shell completion script for forge-me.
+	Long: `Generate shell completion script for cfmon.
 
 To load completions:
 
 Bash:
 
-  $ source <(forge-me completion bash)
+  $ source <(cfmon completion bash)
 
   # To load completions for each session, execute once:
   # Linux:
-  $ forge-me completion bash > /etc/bash_completion.d/forge-me
+  $ cfmon completion bash > /etc/bash_completion.d/cfmon
   # macOS:
-  $ forge-me completion bash > $(brew --prefix)/etc/bash_completion.d/forge-me
+  $ cfmon completion bash > $(brew --prefix)/etc/bash_completion.d/cfmon
 
 Zsh:
 
@@ -31,23 +31,23 @@ Zsh:
   $ echo "autoload -U compinit; compinit" >> ~/.zshrc
 
   # To load completions for each session, execute once:
-  $ forge-me completion zsh > "${fpath[1]}/_forge-me"
+  $ cfmon completion zsh > "${fpath[1]}/_cfmon"
 
   # You will need to start a new shell for this setup to take effect.
 
 Fish:
 
-  $ forge-me completion fish | source
+  $ cfmon completion fish | source
 
   # To load completions for each session, execute once:
-  $ forge-me completion fish > ~/.config/fish/completions/forge-me.fish
+  $ cfmon completion fish > ~/.config/fish/completions/cfmon.fish
 
 PowerShell:
 
-  PS> forge-me completion powershell | Out-String | Invoke-Expression
+  PS> cfmon completion powershell | Out-String | Invoke-Expression
 
   # To load completions for every new session, run:
-  PS> forge-me completion powershell > forge-me.ps1
+  PS> cfmon completion powershell > cfmon.ps1
   # and source this file from your PowerShell profile.
 `,
 	DisableFlagsInUseLine: true,

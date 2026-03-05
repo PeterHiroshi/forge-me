@@ -74,8 +74,8 @@ func TestContainersCmd_WithTokenFlag_TableFormat(t *testing.T) {
 func TestContainersCmd_MissingAccountID(t *testing.T) {
 	resetGlobalFlags()
 
-	// Execute without account ID
-	rootCmd.SetArgs([]string{"containers"})
+	// Execute list subcommand without account ID
+	rootCmd.SetArgs([]string{"containers", "list"})
 
 	err := rootCmd.Execute()
 	if err == nil {
@@ -94,8 +94,8 @@ func TestContainersCmd_MissingToken(t *testing.T) {
 	tmpDir := t.TempDir()
 	cfgFile = filepath.Join(tmpDir, "nonexistent.yaml")
 
-	// Execute without token
-	rootCmd.SetArgs([]string{"containers", "test-account"})
+	// Execute list subcommand without token
+	rootCmd.SetArgs([]string{"containers", "list", "test-account"})
 
 	err := rootCmd.Execute()
 	if err == nil {
@@ -222,8 +222,8 @@ func TestContainersCmd_NoColorFlag(t *testing.T) {
 func TestContainersCmd_TooManyArgs(t *testing.T) {
 	resetGlobalFlags()
 
-	// Execute with too many arguments
-	rootCmd.SetArgs([]string{"containers", "account1", "account2"})
+	// Execute list subcommand with too many arguments
+	rootCmd.SetArgs([]string{"containers", "list", "account1", "account2"})
 
 	err := rootCmd.Execute()
 	if err == nil {

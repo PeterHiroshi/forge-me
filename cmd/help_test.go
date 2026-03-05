@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"bytes"
+	"os"
 	"strings"
 	"testing"
 
@@ -50,34 +51,48 @@ func TestHelpCommand(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Create a new command for testing
+			if len(tt.args) == 0 {
+				// displayMainHelp() writes to os.Stdout directly, so capture it
+				oldStdout := os.Stdout
+				r, w, _ := os.Pipe()
+				os.Stdout = w
+
+				displayMainHelp()
+
+				w.Close()
+				var buf bytes.Buffer
+				buf.ReadFrom(r)
+				os.Stdout = oldStdout
+
+				output := buf.String()
+				for _, want := range tt.wantText {
+					if !strings.Contains(output, want) {
+						t.Errorf("output missing expected text %q\nGot: %s", want, output)
+					}
+				}
+				return
+			}
+
+			// For subcommand help tests, use cobra command mock
 			helpCmd := &cobra.Command{
 				Use:   "help [command]",
 				Short: "Display help information for cfmon",
 				Run: func(cmd *cobra.Command, args []string) {
-					if len(args) == 0 {
-						displayMainHelp()
+					if args[0] == "unknown" {
+						cmd.PrintErr("Unknown command: unknown\n")
 					} else {
-						// Mock implementation for testing
-						if args[0] == "unknown" {
-							cmd.PrintErr("Unknown command: unknown\n")
-						} else {
-							cmd.Print("Manage and monitor Cloudflare " + strings.Title(args[0]))
-						}
+						cmd.Print("Manage and monitor Cloudflare " + strings.Title(args[0]))
 					}
 				},
 			}
 
-			// Capture output
 			buf := new(bytes.Buffer)
 			errBuf := new(bytes.Buffer)
 			helpCmd.SetOut(buf)
 			helpCmd.SetErr(errBuf)
 
-			// Execute command
 			helpCmd.Run(helpCmd, tt.args)
 
-			// Check output
 			output := buf.String()
 			errOutput := errBuf.String()
 

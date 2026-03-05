@@ -131,8 +131,8 @@ func TestRootCmd_Version(t *testing.T) {
 		t.Error("rootCmd.Version is empty, want non-empty")
 	}
 
-	if rootCmd.Version != "0.1.0" {
-		t.Errorf("rootCmd.Version = %q, want %q", rootCmd.Version, "0.1.0")
+	if rootCmd.Version != Version {
+		t.Errorf("rootCmd.Version = %q, want %q", rootCmd.Version, Version)
 	}
 }
 

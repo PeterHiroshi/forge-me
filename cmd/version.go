@@ -15,7 +15,7 @@ var versionCmd = &cobra.Command{
 	Use:   "version",
 	Short: "Print version information",
 	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Printf("forge-me version %s\n", Version)
+		fmt.Printf("cfmon version %s\n", Version)
 	},
 }
 

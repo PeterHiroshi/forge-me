@@ -32,9 +32,9 @@ func TestVersionCmd_Output(t *testing.T) {
 	buf.ReadFrom(r)
 	output := buf.String()
 
-	// Should contain "forge-me" and "version"
-	if !strings.Contains(output, "forge-me") {
-		t.Errorf("version output doesn't contain 'forge-me': %q", output)
+	// Should contain "cfmon" and "version"
+	if !strings.Contains(output, "cfmon") {
+		t.Errorf("version output doesn't contain 'cfmon': %q", output)
 	}
 
 	if !strings.Contains(output, "version") {

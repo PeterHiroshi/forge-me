@@ -9,8 +9,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/PeterHiroshi/forge-me/internal/api"
-	"github.com/PeterHiroshi/forge-me/internal/config"
+	"github.com/PeterHiroshi/cfmon/internal/api"
+	"github.com/PeterHiroshi/cfmon/internal/config"
 )
 
 func TestWorkersCmd_WithTokenFlag_TableFormat(t *testing.T) {
@@ -216,7 +216,7 @@ func TestWorkersCmd_DefaultConfigPath(t *testing.T) {
 	defer os.Setenv("HOME", oldHome)
 
 	// Create config in default location
-	defaultConfigPath := filepath.Join(tmpHome, ".forge-me", "config.yaml")
+	defaultConfigPath := filepath.Join(tmpHome, ".cfmon", "config.yaml")
 	cfg := &config.Config{Token: "home-worker-token"}
 	err := config.Save(defaultConfigPath, cfg)
 	if err != nil {

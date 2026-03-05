@@ -1,11 +1,11 @@
-# forge-me installer for Windows
-# Usage: iwr -useb https://raw.githubusercontent.com/PeterHiroshi/forge-me/main/scripts/install.ps1 | iex
+# cfmon installer for Windows
+# Usage: iwr -useb https://raw.githubusercontent.com/PeterHiroshi/cfmon/main/scripts/install.ps1 | iex
 
 $ErrorActionPreference = 'Stop'
 
-$Repo = "PeterHiroshi/forge-me"
-$BinaryName = "forge-me.exe"
-$InstallDir = "$env:LOCALAPPDATA\Programs\forge-me"
+$Repo = "PeterHiroshi/cfmon"
+$BinaryName = "cfmon.exe"
+$InstallDir = "$env:LOCALAPPDATA\Programs\cfmon"
 
 # Detect architecture
 $Arch = if ([Environment]::Is64BitOperatingSystem) { "x86_64" } else { "i386" }
@@ -20,7 +20,7 @@ if (-not $Version) {
     exit 1
 }
 
-Write-Host "Installing forge-me $Version for Windows $Arch..."
+Write-Host "Installing cfmon $Version for Windows $Arch..."
 
 # Download URLs
 $Archive = "${BinaryName}_${Version}_Windows_${Arch}.zip"
@@ -73,14 +73,14 @@ try {
         $env:Path += ";$InstallDir"
     }
 
-    Write-Host "✓ forge-me installed successfully!" -ForegroundColor Green
-    Write-Host "Run 'forge-me --help' to get started"
+    Write-Host "✓ cfmon installed successfully!" -ForegroundColor Green
+    Write-Host "Run 'cfmon --help' to get started"
     Write-Host ""
     Write-Host "Note: You may need to restart your terminal for PATH changes to take effect"
     Write-Host ""
     Write-Host "Alternative: Install via Scoop (if available):"
-    Write-Host "  scoop bucket add forge-me https://github.com/PeterHiroshi/scoop-forge-me"
-    Write-Host "  scoop install forge-me"
+    Write-Host "  scoop bucket add cfmon https://github.com/PeterHiroshi/scoop-cfmon"
+    Write-Host "  scoop install cfmon"
 
 } finally {
     # Cleanup

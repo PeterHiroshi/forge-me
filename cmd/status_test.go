@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/PeterHiroshi/forge-me/internal/config"
+	"github.com/PeterHiroshi/cfmon/internal/config"
 )
 
 func TestStatusCmd_MissingToken(t *testing.T) {
@@ -147,7 +147,7 @@ func TestStatusCmd_DefaultConfigPath(t *testing.T) {
 	defer os.Setenv("HOME", oldHome)
 
 	// Create config in default location
-	defaultConfigPath := filepath.Join(tmpHome, ".forge-me", "config.yaml")
+	defaultConfigPath := filepath.Join(tmpHome, ".cfmon", "config.yaml")
 	cfg := &config.Config{Token: "home-status-token"}
 	err := config.Save(defaultConfigPath, cfg)
 	if err != nil {

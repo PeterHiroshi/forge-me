@@ -1,12 +1,12 @@
 #!/bin/bash
 set -e
 
-# forge-me installer for macOS and Linux
-# Usage: curl -sSL https://raw.githubusercontent.com/PeterHiroshi/forge-me/main/scripts/install.sh | bash
+# cfmon installer for macOS and Linux
+# Usage: curl -sSL https://raw.githubusercontent.com/PeterHiroshi/cfmon/main/scripts/install.sh | bash
 
-REPO="PeterHiroshi/forge-me"
+REPO="PeterHiroshi/cfmon"
 INSTALL_DIR="/usr/local/bin"
-BINARY_NAME="forge-me"
+BINARY_NAME="cfmon"
 
 # Detect OS and architecture
 OS=$(uname -s | tr '[:upper:]' '[:lower:]')
@@ -46,7 +46,7 @@ if [ -z "$VERSION" ]; then
   exit 1
 fi
 
-echo "Installing forge-me $VERSION for $OS $ARCH..."
+echo "Installing cfmon $VERSION for $OS $ARCH..."
 
 # Download URL
 ARCHIVE="${BINARY_NAME}_${VERSION}_${OS}_${ARCH}.tar.gz"
@@ -90,8 +90,8 @@ rm -rf "$TMP_DIR"
 
 # Verify installation
 if command -v "$BINARY_NAME" >/dev/null 2>&1; then
-  echo "✓ forge-me installed successfully!"
-  echo "Run 'forge-me --help' to get started"
+  echo "✓ cfmon installed successfully!"
+  echo "Run 'cfmon --help' to get started"
 else
   echo "Installation complete, but $BINARY_NAME is not in PATH"
   echo "Add $INSTALL_DIR to your PATH or move the binary to a directory in your PATH"
@@ -99,5 +99,5 @@ fi
 
 echo ""
 echo "Alternative: Install via Homebrew (if available):"
-echo "  brew tap PeterHiroshi/forge-me"
-echo "  brew install forge-me"
+echo "  brew tap PeterHiroshi/cfmon"
+echo "  brew install cfmon"

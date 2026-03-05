@@ -1,6 +1,6 @@
 package main
 
-import "github.com/PeterHiroshi/forge-me/cmd"
+import "github.com/PeterHiroshi/cfmon/cmd"
 
 func main() {
 	cmd.Execute()

@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/PeterHiroshi/forge-me/internal/config"
+	"github.com/PeterHiroshi/cfmon/internal/config"
 )
 
 func TestLoginCmd_Success(t *testing.T) {
@@ -105,7 +105,7 @@ func TestLoginCmd_DefaultConfigPath(t *testing.T) {
 	}
 
 	// Verify config was saved to default location
-	expectedPath := filepath.Join(tmpHome, ".forge-me", "config.yaml")
+	expectedPath := filepath.Join(tmpHome, ".cfmon", "config.yaml")
 	cfg, err := config.Load(expectedPath)
 	if err != nil {
 		t.Fatalf("config.Load() error = %v", err)
@@ -116,7 +116,7 @@ func TestLoginCmd_DefaultConfigPath(t *testing.T) {
 	}
 
 	// Verify directory was created
-	dirInfo, err := os.Stat(filepath.Join(tmpHome, ".forge-me"))
+	dirInfo, err := os.Stat(filepath.Join(tmpHome, ".cfmon"))
 	if err != nil {
 		t.Fatalf("config directory not created: %v", err)
 	}

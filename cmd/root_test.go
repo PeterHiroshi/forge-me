@@ -46,7 +46,7 @@ func TestExecute(t *testing.T) {
 
 	// Should contain help text about the tool or commands
 	// Running with no args shows help which should mention Cloudflare or the commands
-	if !strings.Contains(output, "Cloudflare") && !strings.Contains(output, "forge-me") {
+	if !strings.Contains(output, "Cloudflare") && !strings.Contains(output, "cfmon") {
 		t.Errorf("Execute() output doesn't contain expected help text")
 	}
 }
@@ -167,8 +167,8 @@ func TestRootCmd_Subcommands(t *testing.T) {
 func TestRootCmd_Use(t *testing.T) {
 	resetGlobalFlags()
 
-	if rootCmd.Use != "forge-me" {
-		t.Errorf("rootCmd.Use = %q, want %q", rootCmd.Use, "forge-me")
+	if rootCmd.Use != "cfmon" {
+		t.Errorf("rootCmd.Use = %q, want %q", rootCmd.Use, "cfmon")
 	}
 }
 

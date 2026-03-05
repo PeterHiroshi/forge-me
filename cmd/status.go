@@ -5,9 +5,9 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/PeterHiroshi/forge-me/internal/api"
-	"github.com/PeterHiroshi/forge-me/internal/config"
-	"github.com/PeterHiroshi/forge-me/internal/output"
+	"github.com/PeterHiroshi/cfmon/internal/api"
+	"github.com/PeterHiroshi/cfmon/internal/config"
+	"github.com/PeterHiroshi/cfmon/internal/output"
 	"github.com/spf13/cobra"
 )
 
@@ -24,7 +24,7 @@ var statusCmd = &cobra.Command{
 				if err != nil {
 					return fmt.Errorf("getting home directory: %w", err)
 				}
-				configPath = filepath.Join(home, ".forge-me", "config.yaml")
+				configPath = filepath.Join(home, ".cfmon", "config.yaml")
 			}
 
 			cfg, err := config.Load(configPath)
@@ -36,7 +36,7 @@ var statusCmd = &cobra.Command{
 		}
 
 		if apiToken == "" {
-			return fmt.Errorf("no API token provided. Use --token flag or run 'forge-me login' first")
+			return fmt.Errorf("no API token provided. Use --token flag or run 'cfmon login' first")
 		}
 
 		// Create API client

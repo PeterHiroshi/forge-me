@@ -1,4 +1,4 @@
-// forge-me CLI - Cloudflare management tool
+// cfmon CLI - Cloudflare management tool
 package cmd
 
 import (
@@ -17,9 +17,9 @@ var (
 
 // rootCmd represents the base command
 var rootCmd = &cobra.Command{
-	Use:   "forge-me",
+	Use:   "cfmon",
 	Short: "A CLI tool for Cloudflare API",
-	Long:  `forge-me is a CLI tool that talks to the Cloudflare API to list containers and workers with their resource usage.`,
+	Long:  `cfmon is a CLI tool that talks to the Cloudflare API to list containers and workers with their resource usage.`,
 }
 
 // Execute adds all child commands to the root command and sets flags appropriately.
@@ -35,6 +35,6 @@ func init() {
 	// Global flags
 	rootCmd.PersistentFlags().StringVar(&format, "format", "table", "Output format (table or json)")
 	rootCmd.PersistentFlags().StringVar(&token, "token", "", "Cloudflare API token")
-	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "Config file (default is $HOME/.forge-me/config.yaml)")
+	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "Config file (default is $HOME/.cfmon/config.yaml)")
 	rootCmd.PersistentFlags().BoolVar(&noColor, "no-color", false, "Disable colored output")
 }

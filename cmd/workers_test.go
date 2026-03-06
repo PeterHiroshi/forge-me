@@ -53,16 +53,25 @@ func TestWorkersCmd_WithTokenFlag_TableFormat(t *testing.T) {
 func TestWorkersCmd_MissingAccountID(t *testing.T) {
 	resetGlobalFlags()
 
+	// Create temp config with no default account
+	tmpDir := t.TempDir()
+	cfgFile = filepath.Join(tmpDir, "config.yaml")
+	cfg := &config.Config{Token: "test-token"}
+	err := config.Save(cfgFile, cfg)
+	if err != nil {
+		t.Fatalf("config.Save() error = %v", err)
+	}
+
 	// Execute list subcommand without account ID
 	rootCmd.SetArgs([]string{"workers", "list"})
 
-	err := rootCmd.Execute()
+	err = rootCmd.Execute()
 	if err == nil {
 		t.Fatal("workersCmd.Execute() error = nil, want error for missing account ID")
 	}
 
-	if !strings.Contains(err.Error(), "arg") && !strings.Contains(err.Error(), "requires") {
-		t.Errorf("error message = %q, should mention missing argument", err.Error())
+	if !strings.Contains(err.Error(), "no account ID provided") && !strings.Contains(err.Error(), "no default account") {
+		t.Errorf("error message = %q, should mention missing account ID or default account", err.Error())
 	}
 }
 

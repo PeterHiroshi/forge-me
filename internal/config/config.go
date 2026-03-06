@@ -9,9 +9,10 @@ import (
 
 // Config holds the application configuration
 type Config struct {
-	Token         string `yaml:"token"`
-	APIEndpoint   string `yaml:"api_endpoint,omitempty"`
-	DefaultFormat string `yaml:"default_format,omitempty"`
+	Token           string `yaml:"token"`
+	APIEndpoint     string `yaml:"api_endpoint,omitempty"`
+	DefaultFormat   string `yaml:"default_format,omitempty"`
+	DefaultAccountID string `yaml:"default_account_id,omitempty"`
 }
 
 // New creates a new Config instance

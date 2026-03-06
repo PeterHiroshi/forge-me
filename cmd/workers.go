@@ -3,11 +3,13 @@ package cmd
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"sort"
 	"strconv"
 	"strings"
 
 	"github.com/PeterHiroshi/cfmon/internal/api"
+	"github.com/PeterHiroshi/cfmon/internal/config"
 	"github.com/PeterHiroshi/cfmon/internal/output"
 	"github.com/spf13/cobra"
 )
@@ -42,7 +44,7 @@ var workersListCmd = &cobra.Command{
 	Use:   "list [account-id]",
 	Short: "List workers with metrics",
 	Long:  `List all Cloudflare Workers with their metrics including CPU usage and request counts.`,
-	Args:  cobra.ExactArgs(1),
+	Args:  cobra.MaximumNArgs(1),
 	RunE:  runWorkersList,
 }
 
@@ -66,7 +68,35 @@ func init() {
 }
 
 func runWorkersList(cmd *cobra.Command, args []string) error {
-	accountID := args[0]
+	var accountID string
+
+	// If no account ID provided, try to use default from config
+	if len(args) == 0 {
+		configPath := cfgFile
+		if configPath == "" {
+			home, err := os.UserHomeDir()
+			if err != nil {
+				return fmt.Errorf("getting home directory: %w", err)
+			}
+			configPath = filepath.Join(home, ".cfmon", "config.yaml")
+		}
+
+		cfg, err := config.Load(configPath)
+		if err != nil && !os.IsNotExist(err) {
+			return fmt.Errorf("loading config: %w", err)
+		}
+
+		if cfg == nil || cfg.DefaultAccountID == "" {
+			return fmt.Errorf("no account ID provided and no default account set. Use 'cfmon accounts set-default <account-id>' to set a default")
+		}
+
+		accountID = cfg.DefaultAccountID
+		if verbose {
+			fmt.Fprintf(os.Stderr, "Debug: Using default account ID: %s\n", accountID)
+		}
+	} else {
+		accountID = args[0]
+	}
 
 	// Get token
 	apiToken, err := getAPIToken()

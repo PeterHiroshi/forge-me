@@ -157,24 +157,75 @@ func runWorkersList(cmd *cobra.Command, args []string) error {
 	}
 
 	// Format output
-	if format == "json" {
-		result, err := output.FormatJSON(workers)
-		if err != nil {
-			return fmt.Errorf("formatting JSON: %w", err)
-		}
-		fmt.Println(result)
-	} else {
-		// Table format with colors
-		if len(workers) == 0 {
-			if workerFilter != "" {
-				fmt.Printf("No workers found matching filter '%s'\n", workerFilter)
-			} else {
-				fmt.Println("No workers found")
+	outFormat := getOutputFormat()
+	fieldsList := parseFieldsList()
+
+	switch outFormat {
+	case "json":
+		// For JSON, convert to map slice if fields filtering is requested
+		if len(fieldsList) > 0 {
+			data := make([]map[string]interface{}, len(workers))
+			for i, w := range workers {
+				data[i] = map[string]interface{}{
+					"id":          w.ID,
+					"name":        w.Name,
+					"cpu":         w.CPUMS,
+					"cpums":       w.CPUMS,
+					"requests":    w.Requests,
+					"errors":      w.Errors,
+					"status":      w.Status,
+					"successrate": w.SuccessRate,
+				}
 			}
-			return nil
+			filtered := output.FilterFields(data, fieldsList)
+			result, err := output.FormatJSON(filtered)
+			if err != nil {
+				return fmt.Errorf("formatting JSON: %w", err)
+			}
+			fmt.Println(result)
+		} else {
+			result, err := output.FormatJSON(workers)
+			if err != nil {
+				return fmt.Errorf("formatting JSON: %w", err)
+			}
+			fmt.Println(result)
 		}
 
-		headers := []string{"ID", "Name", "CPU (ms)", "Requests", "Errors", "Status"}
+	case "jsonl":
+		// Convert to interface slice for JSONL
+		data := make([]interface{}, len(workers))
+		if len(fieldsList) > 0 {
+			maps := make([]map[string]interface{}, len(workers))
+			for i, w := range workers {
+				maps[i] = map[string]interface{}{
+					"id":          w.ID,
+					"name":        w.Name,
+					"cpu":         w.CPUMS,
+					"cpums":       w.CPUMS,
+					"requests":    w.Requests,
+					"errors":      w.Errors,
+					"status":      w.Status,
+					"successrate": w.SuccessRate,
+				}
+			}
+			filtered := output.FilterFields(maps, fieldsList)
+			for i, m := range filtered {
+				data[i] = m
+			}
+		} else {
+			for i, w := range workers {
+				data[i] = w
+			}
+		}
+		result, err := output.FormatJSONL(data)
+		if err != nil {
+			return fmt.Errorf("formatting JSONL: %w", err)
+		}
+		fmt.Print(result)
+
+	case "csv", "table":
+		// Build headers and rows
+		headers := []string{"ID", "Name", "CPU", "Requests", "Errors", "Status"}
 		rows := make([][]string, len(workers))
 		for i, w := range workers {
 			errors := "0"
@@ -194,15 +245,57 @@ func runWorkersList(cmd *cobra.Command, args []string) error {
 				status,
 			}
 		}
-		result := output.FormatColoredTable(headers, rows, !noColor)
-		fmt.Print(result)
 
-		// Summary
-		if !noColor {
-			fmt.Printf("\n\033[36mTotal: %d worker(s)\033[0m\n", len(workers))
-		} else {
-			fmt.Printf("\nTotal: %d worker(s)\n", len(workers))
+		// Filter fields if requested
+		if len(fieldsList) > 0 {
+			headers, rows = output.FilterTableFields(headers, rows, fieldsList)
 		}
+
+		if outFormat == "csv" {
+			result := output.FormatCSV(headers, rows, !noHeader)
+			fmt.Print(result)
+		} else {
+			// Table format
+			if len(workers) == 0 {
+				if !quiet {
+					if workerFilter != "" {
+						fmt.Printf("No workers found matching filter '%s'\n", workerFilter)
+					} else {
+						fmt.Println("No workers found")
+					}
+				}
+				return nil
+			}
+
+			// Format table with or without headers
+			if noHeader {
+				// Print rows without headers
+				for _, row := range rows {
+					for i, cell := range row {
+						if i > 0 {
+							fmt.Print("  ")
+						}
+						fmt.Print(cell)
+					}
+					fmt.Println()
+				}
+			} else {
+				result := output.FormatColoredTable(headers, rows, !noColor)
+				fmt.Print(result)
+			}
+
+			// Summary (suppressed in quiet mode)
+			if !quiet {
+				if !noColor {
+					fmt.Printf("\n\033[36mTotal: %d worker(s)\033[0m\n", len(workers))
+				} else {
+					fmt.Printf("\nTotal: %d worker(s)\n", len(workers))
+				}
+			}
+		}
+
+	default:
+		return fmt.Errorf("unsupported output format: %s (use: table, json, jsonl, csv)", outFormat)
 	}
 
 	return nil

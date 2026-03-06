@@ -158,24 +158,75 @@ func runContainersList(cmd *cobra.Command, args []string) error {
 	}
 
 	// Format output
-	if format == "json" {
-		result, err := output.FormatJSON(containers)
-		if err != nil {
-			return fmt.Errorf("formatting JSON: %w", err)
-		}
-		fmt.Println(result)
-	} else {
-		// Table format with colors
-		if len(containers) == 0 {
-			if containerFilter != "" {
-				fmt.Printf("No containers found matching filter '%s'\n", containerFilter)
-			} else {
-				fmt.Println("No containers found")
+	outFormat := getOutputFormat()
+	fieldsList := parseFieldsList()
+
+	switch outFormat {
+	case "json":
+		// For JSON, convert to map slice if fields filtering is requested
+		if len(fieldsList) > 0 {
+			data := make([]map[string]interface{}, len(containers))
+			for i, c := range containers {
+				data[i] = map[string]interface{}{
+					"id":       c.ID,
+					"name":     c.Name,
+					"cpu":      c.CPUMS,
+					"cpums":    c.CPUMS,
+					"memory":   c.MemoryMB,
+					"memorymb": c.MemoryMB,
+					"requests": c.Requests,
+					"status":   c.Status,
+				}
 			}
-			return nil
+			filtered := output.FilterFields(data, fieldsList)
+			result, err := output.FormatJSON(filtered)
+			if err != nil {
+				return fmt.Errorf("formatting JSON: %w", err)
+			}
+			fmt.Println(result)
+		} else {
+			result, err := output.FormatJSON(containers)
+			if err != nil {
+				return fmt.Errorf("formatting JSON: %w", err)
+			}
+			fmt.Println(result)
 		}
 
-		headers := []string{"ID", "Name", "CPU (ms)", "Memory (MB)", "Requests"}
+	case "jsonl":
+		// Convert to interface slice for JSONL
+		data := make([]interface{}, len(containers))
+		if len(fieldsList) > 0 {
+			maps := make([]map[string]interface{}, len(containers))
+			for i, c := range containers {
+				maps[i] = map[string]interface{}{
+					"id":       c.ID,
+					"name":     c.Name,
+					"cpu":      c.CPUMS,
+					"cpums":    c.CPUMS,
+					"memory":   c.MemoryMB,
+					"memorymb": c.MemoryMB,
+					"requests": c.Requests,
+					"status":   c.Status,
+				}
+			}
+			filtered := output.FilterFields(maps, fieldsList)
+			for i, m := range filtered {
+				data[i] = m
+			}
+		} else {
+			for i, c := range containers {
+				data[i] = c
+			}
+		}
+		result, err := output.FormatJSONL(data)
+		if err != nil {
+			return fmt.Errorf("formatting JSONL: %w", err)
+		}
+		fmt.Print(result)
+
+	case "csv", "table":
+		// Build headers and rows
+		headers := []string{"ID", "Name", "CPU", "Memory", "Requests"}
 		rows := make([][]string, len(containers))
 		for i, c := range containers {
 			requests := "0"
@@ -190,15 +241,57 @@ func runContainersList(cmd *cobra.Command, args []string) error {
 				requests,
 			}
 		}
-		result := output.FormatColoredTable(headers, rows, !noColor)
-		fmt.Print(result)
 
-		// Summary
-		if !noColor {
-			fmt.Printf("\n\033[36mTotal: %d container(s)\033[0m\n", len(containers))
-		} else {
-			fmt.Printf("\nTotal: %d container(s)\n", len(containers))
+		// Filter fields if requested
+		if len(fieldsList) > 0 {
+			headers, rows = output.FilterTableFields(headers, rows, fieldsList)
 		}
+
+		if outFormat == "csv" {
+			result := output.FormatCSV(headers, rows, !noHeader)
+			fmt.Print(result)
+		} else {
+			// Table format
+			if len(containers) == 0 {
+				if !quiet {
+					if containerFilter != "" {
+						fmt.Printf("No containers found matching filter '%s'\n", containerFilter)
+					} else {
+						fmt.Println("No containers found")
+					}
+				}
+				return nil
+			}
+
+			// Format table with or without headers
+			if noHeader {
+				// Print rows without headers
+				for _, row := range rows {
+					for i, cell := range row {
+						if i > 0 {
+							fmt.Print("  ")
+						}
+						fmt.Print(cell)
+					}
+					fmt.Println()
+				}
+			} else {
+				result := output.FormatColoredTable(headers, rows, !noColor)
+				fmt.Print(result)
+			}
+
+			// Summary (suppressed in quiet mode)
+			if !quiet {
+				if !noColor {
+					fmt.Printf("\n\033[36mTotal: %d container(s)\033[0m\n", len(containers))
+				} else {
+					fmt.Printf("\nTotal: %d container(s)\n", len(containers))
+				}
+			}
+		}
+
+	default:
+		return fmt.Errorf("unsupported output format: %s (use: table, json, jsonl, csv)", outFormat)
 	}
 
 	return nil

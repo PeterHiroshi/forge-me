@@ -165,3 +165,135 @@ func colorizeCell(cell string) string {
 	// Default: no color
 	return cell
 }
+
+// FormatJSONL converts data to JSON Lines format (one JSON object per line)
+func FormatJSONL(data interface{}) (string, error) {
+	// Check if data is a slice
+	switch v := data.(type) {
+	case []interface{}:
+		var sb strings.Builder
+		for _, item := range v {
+			b, err := json.Marshal(item)
+			if err != nil {
+				return "", err
+			}
+			sb.Write(b)
+			sb.WriteString("\n")
+		}
+		return sb.String(), nil
+	default:
+		// For single objects, just marshal once
+		b, err := json.Marshal(data)
+		if err != nil {
+			return "", err
+		}
+		return string(b) + "\n", nil
+	}
+}
+
+// FormatCSV formats data as CSV
+func FormatCSV(headers []string, rows [][]string, includeHeader bool) string {
+	if len(headers) == 0 {
+		return ""
+	}
+
+	var sb strings.Builder
+
+	// Print headers if requested
+	if includeHeader {
+		for i, h := range headers {
+			if i > 0 {
+				sb.WriteString(",")
+			}
+			sb.WriteString(escapeCSV(h))
+		}
+		sb.WriteString("\n")
+	}
+
+	// Print rows
+	for _, row := range rows {
+		for i, cell := range row {
+			if i > 0 {
+				sb.WriteString(",")
+			}
+			if i < len(headers) {
+				sb.WriteString(escapeCSV(cell))
+			}
+		}
+		sb.WriteString("\n")
+	}
+
+	return sb.String()
+}
+
+// escapeCSV escapes a CSV field value
+func escapeCSV(s string) string {
+	// If the string contains comma, quote, or newline, wrap in quotes and escape quotes
+	if strings.ContainsAny(s, ",\"\n") {
+		s = strings.ReplaceAll(s, "\"", "\"\"")
+		return "\"" + s + "\""
+	}
+	return s
+}
+
+// FilterFields filters a slice of maps to only include specified fields
+func FilterFields(data []map[string]interface{}, fields []string) []map[string]interface{} {
+	if len(fields) == 0 {
+		return data
+	}
+
+	// Create a set of requested fields for fast lookup
+	fieldSet := make(map[string]bool)
+	for _, f := range fields {
+		fieldSet[f] = true
+	}
+
+	filtered := make([]map[string]interface{}, len(data))
+	for i, item := range data {
+		filtered[i] = make(map[string]interface{})
+		for key, value := range item {
+			if fieldSet[key] {
+				filtered[i][key] = value
+			}
+		}
+	}
+
+	return filtered
+}
+
+// FilterTableFields filters headers and rows to only include specified field indices
+func FilterTableFields(headers []string, rows [][]string, fields []string) ([]string, [][]string) {
+	if len(fields) == 0 {
+		return headers, rows
+	}
+
+	// Create a map of header name to index
+	headerMap := make(map[string]int)
+	for i, h := range headers {
+		headerMap[strings.ToLower(h)] = i
+	}
+
+	// Determine which indices to keep
+	indices := []int{}
+	filteredHeaders := []string{}
+	for _, field := range fields {
+		if idx, ok := headerMap[strings.ToLower(field)]; ok {
+			indices = append(indices, idx)
+			filteredHeaders = append(filteredHeaders, headers[idx])
+		}
+	}
+
+	// Filter rows
+	filteredRows := make([][]string, len(rows))
+	for i, row := range rows {
+		filteredRow := make([]string, len(indices))
+		for j, idx := range indices {
+			if idx < len(row) {
+				filteredRow[j] = row[idx]
+			}
+		}
+		filteredRows[i] = filteredRow
+	}
+
+	return filteredHeaders, filteredRows
+}

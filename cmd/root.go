@@ -4,6 +4,7 @@ package cmd
 import (
 	"fmt"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -11,8 +12,12 @@ import (
 
 var (
 	// Output flags
-	format   string
-	noColor  bool
+	format     string // Deprecated: use outputFormat
+	outputFormat string
+	fields     string
+	quiet      bool
+	noHeader   bool
+	noColor    bool
 
 	// Authentication flags
 	token    string
@@ -89,22 +94,53 @@ func Execute() {
 func init() {
 	cobra.OnInitialize(initConfig)
 
-	// Global flags
-	rootCmd.PersistentFlags().StringVar(&format, "format", "table", "Output format (table or json)")
+	// Output flags
+	rootCmd.PersistentFlags().StringVarP(&outputFormat, "output", "o", "table", "Output format (table, json, jsonl, csv)")
+	rootCmd.PersistentFlags().StringVar(&format, "format", "", "Output format (deprecated: use --output instead)")
+	rootCmd.PersistentFlags().StringVar(&fields, "fields", "", "Comma-separated list of fields to include (e.g., name,cpu,memory)")
+	rootCmd.PersistentFlags().BoolVarP(&quiet, "quiet", "q", false, "Suppress headers, summaries, and decorations")
+	rootCmd.PersistentFlags().BoolVar(&noHeader, "no-header", false, "Suppress column headers in table/csv output")
 	rootCmd.PersistentFlags().BoolVar(&noColor, "no-color", false, "Disable colored output")
+
+	// Authentication flags
 	rootCmd.PersistentFlags().StringVar(&token, "token", "", "Cloudflare API token (overrides config)")
 	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "Config file (default: $HOME/.cfmon/config.yaml)")
+
+	// Global flags
 	rootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "Enable verbose debug output")
 	rootCmd.PersistentFlags().DurationVar(&timeout, "timeout", 30*time.Second, "API request timeout")
-
-	// Mark format flag as having shorthand
-	rootCmd.PersistentFlags().Lookup("format").Shorthand = "f"
 }
 
 // initConfig reads in config file and ENV variables if set.
 func initConfig() {
-	// This will be implemented properly when we handle config
-	// For now, it's a placeholder
+	// Handle deprecated --format flag
+	if format != "" && outputFormat == "table" {
+		outputFormat = format
+	}
+}
+
+// getOutputFormat returns the effective output format
+func getOutputFormat() string {
+	if format != "" && outputFormat == "table" {
+		return format
+	}
+	return outputFormat
+}
+
+// parseFieldsList parses the comma-separated fields list
+func parseFieldsList() []string {
+	if fields == "" {
+		return nil
+	}
+	parts := strings.Split(fields, ",")
+	result := make([]string, 0, len(parts))
+	for _, p := range parts {
+		trimmed := strings.TrimSpace(p)
+		if trimmed != "" {
+			result = append(result, trimmed)
+		}
+	}
+	return result
 }
 
 // handleError provides user-friendly error messages with suggestions

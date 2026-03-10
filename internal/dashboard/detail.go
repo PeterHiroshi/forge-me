@@ -78,3 +78,65 @@ func (m Model) renderContainerDetail() string {
 
 	return b.String()
 }
+
+func (m Model) renderAlertDetail() string {
+	alerts := m.data.Alerts
+	if m.filterText != "" {
+		alerts = filterAlerts(alerts, m.filterText)
+	}
+	if m.selectedRow >= len(alerts) || m.selectedRow < 0 {
+		return "No alert selected"
+	}
+	a := alerts[m.selectedRow]
+
+	var b strings.Builder
+	b.WriteString(cardTitleStyle.Render("Alert Detail"))
+	b.WriteString("\n\n")
+
+	sevStyle := warningStyle
+	if a.Severity == "critical" {
+		sevStyle = criticalStyle
+	}
+	b.WriteString(fmt.Sprintf("  Severity:     %s\n", sevStyle.Render(a.Severity)))
+	b.WriteString(fmt.Sprintf("  Resource:     %s %q\n", a.ResourceType, a.ResourceName))
+	b.WriteString(fmt.Sprintf("  Metric:       %s\n", a.Metric))
+	b.WriteString(fmt.Sprintf("  Value:        %.1f%%\n", a.Value))
+	b.WriteString(fmt.Sprintf("  Threshold:    %.1f%%\n", a.Threshold))
+	if a.Message != "" {
+		b.WriteString(fmt.Sprintf("  Message:      %s\n", a.Message))
+	}
+
+	// Show related resource detail
+	b.WriteString("\n")
+	switch a.ResourceType {
+	case "worker":
+		for _, w := range m.data.Workers {
+			if w.Name == a.ResourceName {
+				b.WriteString(cardTitleStyle.Render("Related Worker"))
+				b.WriteString("\n")
+				b.WriteString(fmt.Sprintf("  Name:       %s\n", w.Name))
+				b.WriteString(fmt.Sprintf("  ID:         %s\n", w.ID))
+				b.WriteString(fmt.Sprintf("  Status:     %s\n", w.Status))
+				b.WriteString(fmt.Sprintf("  Requests:   %d\n", w.Requests))
+				b.WriteString(fmt.Sprintf("  Errors:     %d\n", w.Errors))
+				b.WriteString(fmt.Sprintf("  CPU (ms):   %d\n", w.CPUMS))
+				break
+			}
+		}
+	case "container":
+		for _, c := range m.data.Containers {
+			if c.Name == a.ResourceName {
+				b.WriteString(cardTitleStyle.Render("Related Container"))
+				b.WriteString("\n")
+				b.WriteString(fmt.Sprintf("  Name:       %s\n", c.Name))
+				b.WriteString(fmt.Sprintf("  ID:         %s\n", c.ID))
+				b.WriteString(fmt.Sprintf("  Status:     %s\n", c.Status))
+				b.WriteString(fmt.Sprintf("  CPU (ms):   %d\n", c.CPUMS))
+				b.WriteString(fmt.Sprintf("  Memory (MB):%d\n", c.MemoryMB))
+				break
+			}
+		}
+	}
+
+	return b.String()
+}

@@ -6,6 +6,7 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/PeterHiroshi/cfmon/internal/api"
+	"github.com/PeterHiroshi/cfmon/internal/monitor"
 )
 
 func TestDetailOpenWithEnter(t *testing.T) {
@@ -127,5 +128,95 @@ func TestDetailSuppressesJK(t *testing.T) {
 	updated := newModel.(Model)
 	if updated.selectedRow != 2 {
 		t.Errorf("j should not move selectedRow in detail view, got %d", updated.selectedRow)
+	}
+}
+
+func TestRenderAlertDetail(t *testing.T) {
+	m := Model{
+		width: 80, height: 24,
+		activeTab:   TabAlerts,
+		selectedRow: 0,
+		showDetail:  true,
+		data: &DashboardData{
+			Alerts: []monitor.Alert{
+				{
+					Severity:     "warning",
+					ResourceType: "worker",
+					ResourceName: "api-proxy",
+					Metric:       "error_rate",
+					Value:        4.2,
+					Threshold:    2.0,
+					Message:      "Worker api-proxy has high error rate: 4.20%",
+				},
+			},
+			Workers: []api.Worker{
+				{Name: "api-proxy", ID: "w-123", Status: "active", Requests: 1000, Errors: 42},
+			},
+		},
+	}
+	result := m.renderAlertDetail()
+	checks := []string{"warning", "worker", "api-proxy", "error_rate", "4.2", "2.0"}
+	for _, c := range checks {
+		if !strings.Contains(result, c) {
+			t.Errorf("alert detail should contain %q, got: %s", c, result)
+		}
+	}
+}
+
+func TestRenderAlertDetailWithRelatedWorker(t *testing.T) {
+	m := Model{
+		width: 80, height: 24,
+		activeTab:   TabAlerts,
+		selectedRow: 0,
+		showDetail:  true,
+		data: &DashboardData{
+			Alerts: []monitor.Alert{
+				{Severity: "warning", ResourceType: "worker", ResourceName: "api-proxy", Metric: "error_rate", Value: 4.2, Threshold: 2.0},
+			},
+			Workers: []api.Worker{
+				{Name: "api-proxy", ID: "w-123", Status: "active", Requests: 1000, Errors: 42},
+			},
+		},
+	}
+	result := m.renderAlertDetail()
+	if !strings.Contains(result, "w-123") {
+		t.Errorf("alert detail should show related worker ID, got: %s", result)
+	}
+}
+
+func TestRenderAlertDetailContainer(t *testing.T) {
+	m := Model{
+		width: 80, height: 24,
+		activeTab:   TabAlerts,
+		selectedRow: 0,
+		showDetail:  true,
+		data: &DashboardData{
+			Alerts: []monitor.Alert{
+				{Severity: "critical", ResourceType: "container", ResourceName: "db-svc", Metric: "memory", Value: 92.3, Threshold: 85.0},
+			},
+			Containers: []api.Container{
+				{Name: "db-svc", ID: "c-789", Status: "running", MemoryMB: 120},
+			},
+		},
+	}
+	result := m.renderAlertDetail()
+	if !strings.Contains(result, "c-789") {
+		t.Errorf("alert detail should show related container ID, got: %s", result)
+	}
+}
+
+func TestRenderAlertDetailNoSelection(t *testing.T) {
+	m := Model{
+		width: 80, height: 24,
+		activeTab:   TabAlerts,
+		selectedRow: 5,
+		showDetail:  true,
+		data: &DashboardData{
+			Alerts: []monitor.Alert{},
+		},
+	}
+	result := m.renderAlertDetail()
+	if !strings.Contains(result, "No alert selected") {
+		t.Errorf("should show 'No alert selected', got: %s", result)
 	}
 }

@@ -514,11 +514,3 @@ func (m *Model) autoScrollToSelected() {
 		m.scrollOffset = m.selectedRow
 	}
 }
-
-func (m Model) renderAlerts() string {
-	return "Alerts tab"
-}
-
-func (m Model) renderAlertDetail() string {
-	return "Alert detail"
-}

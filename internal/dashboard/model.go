@@ -225,6 +225,26 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 
+	case tea.MouseMsg:
+		if m.showHelp || m.showDetail || m.filterMode {
+			return m, nil
+		}
+		switch msg.Button {
+		case tea.MouseButtonWheelDown:
+			if m.activeTab != TabOverview {
+				m.selectedRow++
+				m.clampSelectedRow()
+				m.autoScrollToSelected()
+			}
+		case tea.MouseButtonWheelUp:
+			if m.activeTab != TabOverview {
+				m.selectedRow--
+				m.clampSelectedRow()
+				m.autoScrollToSelected()
+			}
+		}
+		return m, nil
+
 	case dataMsg:
 		m.data = msg.data
 		m.loading = false

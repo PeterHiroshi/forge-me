@@ -77,7 +77,7 @@ func runDashboard(cmd *cobra.Command, args []string) error {
 	}
 
 	m := dashboard.NewModel(client, accountID, dashboardRefresh)
-	p := tea.NewProgram(m, tea.WithAltScreen())
+	p := tea.NewProgram(m, tea.WithAltScreen(), tea.WithMouseCellMotion())
 
 	if _, err := p.Run(); err != nil {
 		return fmt.Errorf("running dashboard: %w", err)

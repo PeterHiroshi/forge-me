@@ -516,3 +516,34 @@ func TestFilterModeSuppressesTabSwitch(t *testing.T) {
 		t.Error("tab switch should be suppressed in filter mode")
 	}
 }
+
+func TestMouseWheelDown(t *testing.T) {
+	m := Model{
+		width: 80, height: 24,
+		activeTab: TabWorkers,
+		data: &DashboardData{
+			Workers: make([]api.Worker, 20),
+		},
+	}
+	newModel, _ := m.Update(tea.MouseMsg{Action: tea.MouseActionPress, Button: tea.MouseButtonWheelDown})
+	updated := newModel.(Model)
+	if updated.selectedRow != 1 {
+		t.Errorf("wheel down should move selectedRow, got %d", updated.selectedRow)
+	}
+}
+
+func TestMouseWheelUp(t *testing.T) {
+	m := Model{
+		width: 80, height: 24,
+		activeTab:   TabWorkers,
+		selectedRow: 5,
+		data: &DashboardData{
+			Workers: make([]api.Worker, 20),
+		},
+	}
+	newModel, _ := m.Update(tea.MouseMsg{Action: tea.MouseActionPress, Button: tea.MouseButtonWheelUp})
+	updated := newModel.(Model)
+	if updated.selectedRow != 4 {
+		t.Errorf("wheel up should move selectedRow, got %d", updated.selectedRow)
+	}
+}

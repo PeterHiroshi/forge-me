@@ -229,6 +229,9 @@ func (m Model) renderOverview() string {
 
 func (m Model) renderStatusBar() string {
 	left := "q: quit  r: refresh  Tab/1-3: switch tabs"
+	if m.activeTab != TabOverview {
+		left += "  j/k: scroll"
+	}
 	right := ""
 	if m.loading {
 		right = m.spinner.View() + " refreshing..."

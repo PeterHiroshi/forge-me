@@ -265,3 +265,75 @@ func TestScrollWithArrowKeys(t *testing.T) {
 		t.Errorf("scrollOffset after up = %d, want 0", updated.scrollOffset)
 	}
 }
+
+func TestViewWorkersTabRendered(t *testing.T) {
+	client := api.NewClient("test-token")
+	m := NewModel(client, "test-account", 30*time.Second)
+	m.width = 100
+	m.height = 24
+	m.loading = false
+	m.activeTab = TabWorkers
+	m.data = &DashboardData{
+		Workers: []api.Worker{
+			{Name: "test-worker", Status: "active", Requests: 100, Errors: 2, CPUMS: 15},
+		},
+	}
+
+	view := m.View()
+	if !strings.Contains(view, "test-worker") {
+		t.Error("Workers tab should render worker name")
+	}
+	if strings.Contains(view, "Phase 2") {
+		t.Error("Workers tab should no longer show Phase 2 placeholder")
+	}
+}
+
+func TestViewContainersTabRendered(t *testing.T) {
+	client := api.NewClient("test-token")
+	m := NewModel(client, "test-account", 30*time.Second)
+	m.width = 120
+	m.height = 24
+	m.loading = false
+	m.activeTab = TabContainers
+	m.data = &DashboardData{
+		Containers: []api.Container{
+			{Name: "test-container", Status: "running", CPUMS: 300, MemoryMB: 64},
+		},
+	}
+
+	view := m.View()
+	if !strings.Contains(view, "test-container") {
+		t.Error("Containers tab should render container name")
+	}
+	if strings.Contains(view, "Phase 2") {
+		t.Error("Containers tab should no longer show Phase 2 placeholder")
+	}
+}
+
+func TestStatusBarShowsScrollHint(t *testing.T) {
+	client := api.NewClient("test-token")
+	m := NewModel(client, "test-account", 30*time.Second)
+	m.width = 120
+	m.height = 24
+
+	// Overview tab should NOT show scroll hint
+	m.activeTab = TabOverview
+	bar := m.renderStatusBar()
+	if strings.Contains(bar, "j/k") {
+		t.Error("Overview tab should not show j/k scroll hint")
+	}
+
+	// Workers tab SHOULD show scroll hint
+	m.activeTab = TabWorkers
+	bar = m.renderStatusBar()
+	if !strings.Contains(bar, "j/k") {
+		t.Error("Workers tab should show j/k scroll hint")
+	}
+
+	// Containers tab SHOULD show scroll hint
+	m.activeTab = TabContainers
+	bar = m.renderStatusBar()
+	if !strings.Contains(bar, "j/k") {
+		t.Error("Containers tab should show j/k scroll hint")
+	}
+}

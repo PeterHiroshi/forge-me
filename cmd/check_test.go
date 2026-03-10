@@ -125,8 +125,8 @@ func TestCheckCmd_TooManyArgs(t *testing.T) {
 	}
 }
 
-func TestCheckCmd_ThresholdFlags(t *testing.T) {
-	// Verify threshold flags are registered
+func TestCheckCmd_DefaultFlags(t *testing.T) {
+	// Verify all 5 flags are registered on checkCmd
 	f := checkCmd.Flags()
 
 	cpuFlag := f.Lookup("cpu-threshold")
@@ -151,6 +151,22 @@ func TestCheckCmd_ThresholdFlags(t *testing.T) {
 	}
 	if errFlag.DefValue != "2" {
 		t.Errorf("--error-threshold default = %q, want %q", errFlag.DefValue, "2")
+	}
+
+	cpuLimitFlag := f.Lookup("cpu-limit")
+	if cpuLimitFlag == nil {
+		t.Fatal("--cpu-limit flag not registered")
+	}
+	if cpuLimitFlag.DefValue != "10000" {
+		t.Errorf("--cpu-limit default = %q, want %q", cpuLimitFlag.DefValue, "10000")
+	}
+
+	memLimitFlag := f.Lookup("memory-limit")
+	if memLimitFlag == nil {
+		t.Fatal("--memory-limit flag not registered")
+	}
+	if memLimitFlag.DefValue != "1024" {
+		t.Errorf("--memory-limit default = %q, want %q", memLimitFlag.DefValue, "1024")
 	}
 }
 

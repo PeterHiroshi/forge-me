@@ -10,6 +10,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/PeterHiroshi/cfmon/internal/api"
+	"github.com/PeterHiroshi/cfmon/internal/monitor"
 )
 
 // Model is the main bubbletea model for the dashboard.
@@ -31,6 +32,9 @@ type Model struct {
 	filterInput     textinput.Model
 	selectedRow     int
 	showDetail      bool
+	events          []DashboardEvent
+	prevAlerts      []monitor.Alert
+	thresholds      monitor.Thresholds
 }
 
 // NewModel creates a new dashboard model.
@@ -54,6 +58,7 @@ func NewModel(client *api.Client, accountID string, refresh time.Duration) Model
 		refreshInterval: refresh,
 		spinner:         s,
 		filterInput:     fi,
+		thresholds:      monitor.DefaultThresholds(),
 	}
 }
 
@@ -100,7 +105,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.scrollOffset = 0
 				m.selectedRow = 0
 				return m, nil
-			case msg.Type == tea.KeyRunes && len(msg.Runes) == 1 && msg.Runes[0] >= '1' && msg.Runes[0] <= '3':
+			case msg.Type == tea.KeyRunes && len(msg.Runes) == 1 && msg.Runes[0] >= '1' && msg.Runes[0] <= '4':
 				m.showDetail = false
 				m.activeTab = TabID(msg.Runes[0] - '1')
 				m.scrollOffset = 0
@@ -223,6 +228,12 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.scrollOffset = 0
 			m.selectedRow = 0
 			return m, nil
+
+		case msg.Type == tea.KeyRunes && len(msg.Runes) == 1 && msg.Runes[0] == '4':
+			m.activeTab = TabAlerts
+			m.scrollOffset = 0
+			m.selectedRow = 0
+			return m, nil
 		}
 
 	case tea.MouseMsg:
@@ -249,6 +260,25 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.data = msg.data
 		m.loading = false
 		m.err = nil
+
+		// Generate events
+		now := time.Now()
+		m.events = addEvent(m.events, DashboardEvent{
+			Time:     now,
+			Text:     fmt.Sprintf("Data refreshed — %d workers, %d containers", len(msg.data.Workers), len(msg.data.Containers)),
+			Severity: "info",
+		})
+
+		// Diff alerts
+		if m.prevAlerts != nil {
+			alertEvents := diffAlerts(m.prevAlerts, msg.data.Alerts)
+			for _, e := range alertEvents {
+				e.Time = now
+				m.events = addEvent(m.events, e)
+			}
+		}
+		m.prevAlerts = msg.data.Alerts
+
 		return m, tickCmd(m.refreshInterval)
 
 	case errMsg:
@@ -309,6 +339,12 @@ func (m Model) View() string {
 				b.WriteString(m.renderContainerDetail())
 			} else {
 				b.WriteString(m.renderContainers())
+			}
+		case TabAlerts:
+			if m.showDetail {
+				b.WriteString(m.renderAlertDetail())
+			} else {
+				b.WriteString(m.renderAlerts())
 			}
 		}
 	}
@@ -391,7 +427,7 @@ func (m Model) renderStatusBar() string {
 	} else if m.filterMode {
 		parts = append(parts, "Enter: confirm  Esc: cancel")
 	} else {
-		parts = append(parts, "q: quit  r: refresh  Tab/1-3: switch tabs")
+		parts = append(parts, "q: quit  r: refresh  Tab/1-4: switch tabs")
 		if m.activeTab != TabOverview {
 			parts = append(parts, "j/k: scroll  /: filter  Enter: detail")
 		}
@@ -443,6 +479,11 @@ func (m Model) currentItemCount() int {
 			return len(filterContainers(m.data.Containers, m.filterText))
 		}
 		return len(m.data.Containers)
+	case TabAlerts:
+		if m.filterText != "" {
+			return len(filterAlerts(m.data.Alerts, m.filterText))
+		}
+		return len(m.data.Alerts)
 	default:
 		return 0
 	}
@@ -472,4 +513,12 @@ func (m *Model) autoScrollToSelected() {
 	if m.selectedRow < m.scrollOffset {
 		m.scrollOffset = m.selectedRow
 	}
+}
+
+func (m Model) renderAlerts() string {
+	return "Alerts tab"
+}
+
+func (m Model) renderAlertDetail() string {
+	return "Alert detail"
 }

@@ -9,6 +9,7 @@ import (
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/PeterHiroshi/cfmon/internal/api"
+	"github.com/PeterHiroshi/cfmon/internal/monitor"
 )
 
 func TestNewModel(t *testing.T) {
@@ -598,5 +599,125 @@ func TestMouseWheelUp(t *testing.T) {
 	updated := newModel.(Model)
 	if updated.selectedRow != 4 {
 		t.Errorf("wheel up should move selectedRow, got %d", updated.selectedRow)
+	}
+}
+
+func TestTabSwitchTo4(t *testing.T) {
+	m := NewModel(api.NewClient("t"), "acc", 30*time.Second)
+	newModel, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'4'}})
+	updated := newModel.(Model)
+	if updated.activeTab != TabAlerts {
+		t.Errorf("pressing '4': activeTab = %d, want TabAlerts(%d)", updated.activeTab, TabAlerts)
+	}
+}
+
+func TestTabCycleIncludesAlerts(t *testing.T) {
+	m := NewModel(api.NewClient("t"), "acc", 30*time.Second)
+	m.activeTab = TabContainers
+	newModel, _ := m.Update(tea.KeyMsg{Type: tea.KeyTab})
+	updated := newModel.(Model)
+	if updated.activeTab != TabAlerts {
+		t.Errorf("Tab from Containers should go to Alerts, got %d", updated.activeTab)
+	}
+}
+
+func TestAlertsTabSupportsScrolling(t *testing.T) {
+	m := Model{
+		width: 80, height: 24,
+		activeTab: TabAlerts,
+		data: &DashboardData{
+			Alerts: make([]monitor.Alert, 10),
+		},
+	}
+	newModel, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'j'}})
+	updated := newModel.(Model)
+	if updated.selectedRow != 1 {
+		t.Errorf("j on alerts tab: selectedRow = %d, want 1", updated.selectedRow)
+	}
+}
+
+func TestAlertsTabSupportsFilter(t *testing.T) {
+	m := Model{
+		width: 80, height: 24,
+		activeTab:   TabAlerts,
+		filterInput: textinput.New(),
+		data: &DashboardData{
+			Alerts: make([]monitor.Alert, 5),
+		},
+	}
+	newModel, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'/'}})
+	updated := newModel.(Model)
+	if !updated.filterMode {
+		t.Error("/ on Alerts tab should activate filter mode")
+	}
+}
+
+func TestAlertsTabSupportsDetailView(t *testing.T) {
+	m := Model{
+		width: 80, height: 24,
+		activeTab: TabAlerts,
+		data: &DashboardData{
+			Alerts: []monitor.Alert{{ResourceName: "api"}},
+		},
+	}
+	newModel, _ := m.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	updated := newModel.(Model)
+	if !updated.showDetail {
+		t.Error("Enter on Alerts tab should open detail view")
+	}
+}
+
+func TestEventGenerationOnDataMsg(t *testing.T) {
+	m := NewModel(api.NewClient("t"), "acc", 30*time.Second)
+	m.width = 80
+	m.height = 24
+
+	data1 := &DashboardData{
+		Workers:    []api.Worker{{Name: "w1"}},
+		Containers: []api.Container{{Name: "c1"}},
+		Alerts:     []monitor.Alert{{ResourceType: "worker", ResourceName: "api", Metric: "error_rate", Severity: "warning"}},
+	}
+	newModel, _ := m.Update(dataMsg{data: data1})
+	updated := newModel.(Model)
+	if len(updated.events) < 1 {
+		t.Errorf("expected events after first data, got %d", len(updated.events))
+	}
+}
+
+func TestViewContainsAlertsTab(t *testing.T) {
+	m := NewModel(api.NewClient("t"), "acc", 30*time.Second)
+	m.width = 80
+	m.height = 24
+	view := m.View()
+	if !strings.Contains(view, "Alerts") {
+		t.Error("view should contain 'Alerts' tab")
+	}
+}
+
+func TestCurrentItemCountAlerts(t *testing.T) {
+	m := Model{
+		activeTab: TabAlerts,
+		data: &DashboardData{
+			Alerts: make([]monitor.Alert, 7),
+		},
+	}
+	if got := m.currentItemCount(); got != 7 {
+		t.Errorf("currentItemCount for alerts = %d, want 7", got)
+	}
+}
+
+func TestCurrentItemCountAlertsWithFilter(t *testing.T) {
+	m := Model{
+		activeTab:  TabAlerts,
+		filterText: "api",
+		data: &DashboardData{
+			Alerts: []monitor.Alert{
+				{ResourceName: "api-proxy", Metric: "error_rate"},
+				{ResourceName: "db-svc", Metric: "memory"},
+			},
+		},
+	}
+	if got := m.currentItemCount(); got != 1 {
+		t.Errorf("currentItemCount with filter = %d, want 1", got)
 	}
 }

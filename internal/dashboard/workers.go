@@ -52,7 +52,7 @@ func (m Model) renderWorkers() string {
 	}
 
 	// Rows
-	for _, w := range m.data.Workers[offset:end] {
+	for i, w := range m.data.Workers[offset:end] {
 		var errRate float64
 		if w.Requests > 0 {
 			errRate = float64(w.Errors) / float64(w.Requests) * 100
@@ -63,7 +63,11 @@ func (m Model) renderWorkers() string {
 
 		row := fmt.Sprintf("%-*s %s %*d %*d %s %*d",
 			nameW, truncate(w.Name, nameW), statusStyled, reqW, w.Requests, errW, w.Errors, errRateStyled, cpuW, w.CPUMS)
-		b.WriteString(tableRowStyle.Render(row))
+		if offset+i == m.selectedRow {
+			b.WriteString(selectedRowStyle.Render(row))
+		} else {
+			b.WriteString(tableRowStyle.Render(row))
+		}
 		b.WriteString("\n")
 	}
 

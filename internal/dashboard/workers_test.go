@@ -78,6 +78,27 @@ func TestRenderWorkersErrorRate(t *testing.T) {
 	}
 }
 
+func TestRenderWorkersSelectedRowHighlight(t *testing.T) {
+	m := Model{
+		width:       100,
+		height:      24,
+		selectedRow: 1,
+		data: &DashboardData{
+			Workers: []api.Worker{
+				{Name: "worker-a", Status: "active", Requests: 100, Errors: 0, CPUMS: 5},
+				{Name: "worker-b", Status: "active", Requests: 200, Errors: 1, CPUMS: 8},
+			},
+		},
+	}
+	result := m.renderWorkers()
+	if !strings.Contains(result, "worker-b") {
+		t.Error("selected row worker-b should be rendered")
+	}
+	if !strings.Contains(result, "worker-a") {
+		t.Error("non-selected row worker-a should be rendered")
+	}
+}
+
 func TestRenderWorkersScroll(t *testing.T) {
 	workers := make([]api.Worker, 30)
 	for i := range workers {

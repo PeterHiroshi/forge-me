@@ -67,14 +67,18 @@ func (m Model) renderContainers() string {
 	avgMem := totalMem / len(m.data.Containers)
 
 	// Rows
-	for _, c := range m.data.Containers[offset:end] {
+	for i, c := range m.data.Containers[offset:end] {
 		statusStyled := lipgloss.NewStyle().Foreground(lipgloss.Color(statusColor(c.Status))).Render(fmt.Sprintf("%-*s", statusW, c.Status))
 		cpuBar := renderBar(c.CPUMS, maxCPU, defaultBarWidth)
 		memBar := renderBar(c.MemoryMB, maxMem, defaultBarWidth)
 
 		row := fmt.Sprintf("%-*s %s %*d %*d %s %s",
 			nameW, truncate(c.Name, nameW), statusStyled, cpuW, c.CPUMS, memW, c.MemoryMB, cpuBar, memBar)
-		b.WriteString(tableRowStyle.Render(row))
+		if offset+i == m.selectedRow {
+			b.WriteString(selectedRowStyle.Render(row))
+		} else {
+			b.WriteString(tableRowStyle.Render(row))
+		}
 		b.WriteString("\n")
 	}
 

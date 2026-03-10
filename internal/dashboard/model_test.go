@@ -188,3 +188,80 @@ func TestViewOverviewWithData(t *testing.T) {
 		t.Error("overview should display health score 92")
 	}
 }
+
+func TestScrollDownUp(t *testing.T) {
+	client := api.NewClient("test-token")
+	m := NewModel(client, "test-account", 30*time.Second)
+	m.width = 80
+	m.height = 24
+	m.loading = false
+	m.activeTab = TabWorkers
+	m.data = &DashboardData{
+		Workers: make([]api.Worker, 20),
+	}
+
+	// Scroll down with j
+	newModel, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'j'}})
+	updated := newModel.(Model)
+	if updated.scrollOffset != 1 {
+		t.Errorf("scrollOffset after j = %d, want 1", updated.scrollOffset)
+	}
+
+	// Scroll up with k
+	newModel, _ = updated.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'k'}})
+	updated = newModel.(Model)
+	if updated.scrollOffset != 0 {
+		t.Errorf("scrollOffset after k = %d, want 0", updated.scrollOffset)
+	}
+
+	// Should not go below 0
+	newModel, _ = updated.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'k'}})
+	updated = newModel.(Model)
+	if updated.scrollOffset != 0 {
+		t.Errorf("scrollOffset should not go below 0, got %d", updated.scrollOffset)
+	}
+}
+
+func TestScrollResetOnTabSwitch(t *testing.T) {
+	client := api.NewClient("test-token")
+	m := NewModel(client, "test-account", 30*time.Second)
+	m.width = 80
+	m.height = 24
+	m.loading = false
+	m.activeTab = TabWorkers
+	m.scrollOffset = 5
+	m.data = &DashboardData{
+		Workers: make([]api.Worker, 20),
+	}
+
+	// Switch tab should reset scroll
+	newModel, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'1'}})
+	updated := newModel.(Model)
+	if updated.scrollOffset != 0 {
+		t.Errorf("scrollOffset after tab switch = %d, want 0", updated.scrollOffset)
+	}
+}
+
+func TestScrollWithArrowKeys(t *testing.T) {
+	client := api.NewClient("test-token")
+	m := NewModel(client, "test-account", 30*time.Second)
+	m.width = 80
+	m.height = 24
+	m.loading = false
+	m.activeTab = TabContainers
+	m.data = &DashboardData{
+		Containers: make([]api.Container, 20),
+	}
+
+	newModel, _ := m.Update(tea.KeyMsg{Type: tea.KeyDown})
+	updated := newModel.(Model)
+	if updated.scrollOffset != 1 {
+		t.Errorf("scrollOffset after down = %d, want 1", updated.scrollOffset)
+	}
+
+	newModel, _ = updated.Update(tea.KeyMsg{Type: tea.KeyUp})
+	updated = newModel.(Model)
+	if updated.scrollOffset != 0 {
+		t.Errorf("scrollOffset after up = %d, want 0", updated.scrollOffset)
+	}
+}

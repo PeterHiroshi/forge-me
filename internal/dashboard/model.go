@@ -21,6 +21,7 @@ type Model struct {
 	err             error
 	width           int
 	height          int
+	scrollOffset    int
 	refreshInterval time.Duration
 	spinner         spinner.Model
 }
@@ -64,24 +65,43 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.loading = true
 			return m, fetchData(m.client, m.accountID)
 
+		case msg.Type == tea.KeyRunes && len(msg.Runes) == 1 && msg.Runes[0] == 'j',
+			msg.Type == tea.KeyDown:
+			if m.activeTab != TabOverview {
+				m.scrollOffset++
+			}
+			return m, nil
+
+		case msg.Type == tea.KeyRunes && len(msg.Runes) == 1 && msg.Runes[0] == 'k',
+			msg.Type == tea.KeyUp:
+			if m.activeTab != TabOverview && m.scrollOffset > 0 {
+				m.scrollOffset--
+			}
+			return m, nil
+
 		case msg.Type == tea.KeyTab:
 			m.activeTab = (m.activeTab + 1) % tabCount
+			m.scrollOffset = 0
 			return m, nil
 
 		case msg.Type == tea.KeyShiftTab:
 			m.activeTab = (m.activeTab - 1 + tabCount) % tabCount
+			m.scrollOffset = 0
 			return m, nil
 
 		case msg.Type == tea.KeyRunes && len(msg.Runes) == 1 && msg.Runes[0] == '1':
 			m.activeTab = TabOverview
+			m.scrollOffset = 0
 			return m, nil
 
 		case msg.Type == tea.KeyRunes && len(msg.Runes) == 1 && msg.Runes[0] == '2':
 			m.activeTab = TabWorkers
+			m.scrollOffset = 0
 			return m, nil
 
 		case msg.Type == tea.KeyRunes && len(msg.Runes) == 1 && msg.Runes[0] == '3':
 			m.activeTab = TabContainers
+			m.scrollOffset = 0
 			return m, nil
 		}
 

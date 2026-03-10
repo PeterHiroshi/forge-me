@@ -1,11 +1,13 @@
 package dashboard
 
 import (
+	"sort"
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/PeterHiroshi/cfmon/internal/api"
 	"github.com/PeterHiroshi/cfmon/internal/health"
+	"github.com/PeterHiroshi/cfmon/internal/monitor"
 )
 
 const (
@@ -23,6 +25,23 @@ type errMsg struct {
 
 type tickMsg struct {
 	time time.Time
+}
+
+func sortAlerts(alerts []monitor.Alert) []monitor.Alert {
+	sorted := make([]monitor.Alert, len(alerts))
+	copy(sorted, alerts)
+	sort.Slice(sorted, func(i, j int) bool {
+		if sorted[i].Severity != sorted[j].Severity {
+			if sorted[i].Severity == "critical" {
+				return true
+			}
+			if sorted[j].Severity == "critical" {
+				return false
+			}
+		}
+		return sorted[i].ResourceName < sorted[j].ResourceName
+	})
+	return sorted
 }
 
 func fetchData(client *api.Client, accountID string) tea.Cmd {
@@ -56,6 +75,12 @@ func fetchData(client *api.Client, accountID string) tea.Cmd {
 		if totalRequests > 0 {
 			data.ErrorRate = float64(totalErrors) / float64(totalRequests) * 100
 		}
+
+		th := monitor.DefaultThresholds()
+		workerAlerts := monitor.EvaluateWorkers(workers, th)
+		containerAlerts := monitor.EvaluateContainers(containers, th, 0, 0)
+		allAlerts := append(workerAlerts, containerAlerts...)
+		data.Alerts = sortAlerts(allAlerts)
 
 		return dataMsg{data: data}
 	}

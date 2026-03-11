@@ -1,154 +1,126 @@
 package tail
 
 import (
+	"context"
 	"encoding/json"
-	"strings"
+	"fmt"
+	"log"
 	"sync"
 	"time"
 
 	"github.com/gorilla/websocket"
 )
 
-// EngineConfig configures the tail engine
-type EngineConfig struct {
-	WebSocketURL string
-	OnEvent      func(TailEvent)
-	OnError      func(error)
-	MaxEvents    int
-	Search       string
-	Since        time.Duration
+type TailEngine struct {
+	url           string
+	filters       TailFilter
+	outputFormat  OutputFormat
+	maxEvents     int
+	eventsChan    chan TailEvent
+	errorsChan    chan error
+	stopChan      chan struct{}
+	reconnectChan chan struct{}
+	mu            sync.Mutex
+	conn          *websocket.Conn
+	eventCount    int
 }
 
-// Engine manages the WebSocket connection and event processing
-type Engine struct {
-	config     EngineConfig
-	stopCh     chan struct{}
-	stoppedCh  chan struct{}
-	stopOnce   sync.Once
-	eventCount int
-}
-
-// NewEngine creates a new tail engine
-func NewEngine(config EngineConfig) *Engine {
-	return &Engine{
-		config:    config,
-		stopCh:    make(chan struct{}),
-		stoppedCh: make(chan struct{}),
+func NewTailEngine(url string, filters TailFilter, format OutputFormat, maxEvents int) *TailEngine {
+	return &TailEngine{
+		url:           url,
+		filters:       filters,
+		outputFormat:  format,
+		maxEvents:     maxEvents,
+		eventsChan:    make(chan TailEvent, 100),
+		errorsChan:    make(chan error, 10),
+		stopChan:      make(chan struct{}),
+		reconnectChan: make(chan struct{}, 1),
 	}
 }
 
-// Run connects to the WebSocket and processes events. Blocks until stopped or max events reached.
-func (e *Engine) Run() {
-	defer close(e.stoppedCh)
+func (e *TailEngine) Start(ctx context.Context) {
+	go e.connectionManager(ctx)
+}
 
-	conn, _, err := websocket.DefaultDialer.Dial(e.config.WebSocketURL, nil)
-	if err != nil {
-		if e.config.OnError != nil {
-			e.config.OnError(err)
+func (e *TailEngine) connectionManager(ctx context.Context) {
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		default:
+			if err := e.connect(ctx); err != nil {
+				log.Printf("Tail connection error: %v", err)
+				time.Sleep(e.backoffDuration())
+				e.reconnectChan <- struct{}{}
+			}
 		}
-		return
 	}
-	defer conn.Close()
+}
 
-	eventCh := make(chan TailEvent)
-	errCh := make(chan error, 1)
+func (e *TailEngine) connect(ctx context.Context) error {
+	e.mu.Lock()
+	defer e.mu.Unlock()
 
-	go func() {
-		defer close(eventCh)
-		for {
-			_, message, err := conn.ReadMessage()
-			if err != nil {
-				if websocket.IsCloseError(err, websocket.CloseNormalClosure, websocket.CloseGoingAway) {
-					return
-				}
-				select {
-				case errCh <- err:
-				default:
-				}
-				return
-			}
+	dialer := websocket.DefaultDialer
+	dialer.HandshakeTimeout = 10 * time.Second
 
-			var event TailEvent
-			if err := json.Unmarshal(message, &event); err != nil {
-				continue
-			}
+	conn, _, err := dialer.DialContext(ctx, e.url, nil)
+	if err != nil {
+		return fmt.Errorf("websocket connect: %w", err)
+	}
+	e.conn = conn
 
-			select {
-			case eventCh <- event:
-			case <-e.stopCh:
-				return
-			}
+	go e.receiveEvents(ctx)
+	return nil
+}
+
+func (e *TailEngine) receiveEvents(ctx context.Context) {
+	defer func() {
+		if e.conn != nil {
+			e.conn.Close()
 		}
 	}()
 
 	for {
 		select {
-		case <-e.stopCh:
-			conn.WriteMessage(websocket.CloseMessage,
-				websocket.FormatCloseMessage(websocket.CloseNormalClosure, ""))
+		case <-ctx.Done():
 			return
-
-		case event, ok := <-eventCh:
-			if !ok {
+		default:
+			_, message, err := e.conn.ReadMessage()
+			if err != nil {
+				e.errorsChan <- fmt.Errorf("read message: %w", err)
 				return
 			}
 
-			if !e.matchesFilters(event) {
+			var event TailEvent
+			if err := json.Unmarshal(message, &event); err != nil {
+				e.errorsChan <- fmt.Errorf("parse event: %w", err)
 				continue
 			}
 
-			if e.config.OnEvent != nil {
-				e.config.OnEvent(event)
-			}
-
+			e.mu.Lock()
 			e.eventCount++
-			if e.config.MaxEvents > 0 && e.eventCount >= e.config.MaxEvents {
+			shouldContinue := e.maxEvents == 0 || e.eventCount <= e.maxEvents
+			e.mu.Unlock()
+
+			if shouldContinue {
+				e.eventsChan <- event
+			} else {
+				close(e.stopChan)
 				return
 			}
-
-		case err := <-errCh:
-			if e.config.OnError != nil {
-				e.config.OnError(err)
-			}
-			return
 		}
 	}
 }
 
-// Stop signals the engine to shut down gracefully
-func (e *Engine) Stop() {
-	e.stopOnce.Do(func() {
-		close(e.stopCh)
-	})
-	<-e.stoppedCh
+func (e *TailEngine) backoffDuration() time.Duration {
+	return time.Second * time.Duration(5 * (1 + rand.Intn(3)))
 }
 
-// matchesFilters checks if an event passes client-side filters
-func (e *Engine) matchesFilters(event TailEvent) bool {
-	if e.config.Since > 0 {
-		cutoff := time.Now().Add(-e.config.Since)
-		if event.Time().Before(cutoff) {
-			return false
-		}
-	}
+func (e *TailEngine) GetEvents() <-chan TailEvent {
+	return e.eventsChan
+}
 
-	if e.config.Search != "" {
-		found := false
-		for _, log := range event.Logs {
-			for _, msg := range log.Message {
-				if strings.Contains(strings.ToLower(msg), strings.ToLower(e.config.Search)) {
-					found = true
-					break
-				}
-			}
-			if found {
-				break
-			}
-		}
-		if !found {
-			return false
-		}
-	}
-
-	return true
+func (e *TailEngine) GetErrors() <-chan error {
+	return e.errorsChan
 }

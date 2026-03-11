@@ -2,12 +2,13 @@
 # GoReleaser configuration for cfmon
 # https://goreleaser.com
 
+version: 2
+
 project_name: cfmon
 
 before:
   hooks:
     - go mod tidy
-    - go generate ./...
 
 builds:
   - id: cfmon
@@ -22,15 +23,9 @@ builds:
     goarch:
       - amd64
       - arm64
-      - "386"
-    goarm:
-      - "6"
-      - "7"
     ignore:
       - goos: windows
         goarch: arm64
-      - goos: windows
-        goarch: "386"
     ldflags:
       - -s -w
       - -X main.Version={{.Version}}
@@ -47,23 +42,19 @@ archives:
       {{- if eq .Arch "amd64" }}x86_64
       {{- else if eq .Arch "386" }}i386
       {{- else }}{{ .Arch }}{{ end }}
-      {{- if .Arm }}v{{ .Arm }}{{ end }}
     format_overrides:
       - goos: windows
         format: zip
     files:
       - LICENSE*
       - README.md
-      - CHANGELOG.md
-      - CONTRIBUTING.md
-      - completions/*
 
 checksum:
   name_template: "checksums.txt"
   algorithm: sha256
 
 snapshot:
-  name_template: "{{ incpatch .Version }}-dev"
+  version_template: "{{ incpatch .Version }}-dev"
 
 changelog:
   sort: asc
@@ -97,130 +88,32 @@ release:
     owner: PeterHiroshi
     name: cfmon
 
-  # Release notes
   header: |
     ## cfmon v{{ .Version }}
 
-    Cloudflare Workers/Containers CLI monitoring tool
+    Cloudflare Workers & Containers CLI monitoring tool.
 
   footer: |
     ---
 
     ### Installation
 
-    #### Homebrew (macOS/Linux)
-    ```bash
-    brew tap PeterHiroshi/cfmon
-    brew install cfmon
-    ```
-
     #### Script installer
     ```bash
     curl -sSL https://raw.githubusercontent.com/PeterHiroshi/cfmon/main/scripts/install.sh | bash
     ```
 
+    #### Go install
+    ```bash
+    go install github.com/PeterHiroshi/cfmon@v{{ .Version }}
+    ```
+
     #### Manual
     Download the appropriate binary for your platform from the assets below.
-
-    ### Quick Start
-    ```bash
-    # Set your Cloudflare API token
-    cfmon login <your-cloudflare-api-token>
-
-    # List containers
-    cfmon containers list
-
-    # List workers
-    cfmon workers list
-    ```
 
     **Full documentation**: https://github.com/PeterHiroshi/cfmon
 
   draft: false
   prerelease: auto
-  mode: append
-
-  # Name template for the release
-  name_template: "{{.ProjectName}} v{{.Version}}"
-
-# Homebrew formula
-brews:
-  - name: cfmon
-    repository:
-      owner: PeterHiroshi
-      name: homebrew-cfmon
-      branch: main
-      token: "{{ .Env.HOMEBREW_TAP_GITHUB_TOKEN }}"
-
-    commit_author:
-      name: goreleaserbot
-      email: bot@goreleaser.com
-
-    commit_msg_template: "Brew formula update for {{ .ProjectName }} version {{ .Tag }}"
-
-    homepage: "https://github.com/PeterHiroshi/cfmon"
-    description: "Cloudflare Workers/Containers CLI monitoring tool"
-    license: "MIT"
-
-    # Dependencies
-    dependencies:
-      - name: go
-        type: optional
-
-    install: |
-      bin.install "cfmon"
-
-      # Install shell completions
-      bash_completion.install "completions/cfmon.bash" => "cfmon"
-      zsh_completion.install "completions/cfmon.zsh" => "_cfmon"
-      fish_completion.install "completions/cfmon.fish"
-
-    test: |
-      system "#{bin}/cfmon", "--version"
-
-# Snapcraft
-snapcrafts:
-  - name: cfmon
-    publish: true
-    summary: Cloudflare Workers/Containers CLI monitoring tool
-    description: |
-      cfmon is a command-line interface tool for monitoring and managing
-      Cloudflare Workers and Containers. It provides an easy way to list,
-      check status, and manage your Cloudflare infrastructure from the terminal.
-
-    grade: stable
-    confinement: strict
-    license: MIT
-
-    apps:
-      cfmon:
-        plugs: ["network", "home"]
-
-# Docker images
-dockers:
-  - image_templates:
-      - "ghcr.io/peterhiroshi/cfmon:{{ .Tag }}"
-      - "ghcr.io/peterhiroshi/cfmon:v{{ .Major }}"
-      - "ghcr.io/peterhiroshi/cfmon:v{{ .Major }}.{{ .Minor }}"
-      - "ghcr.io/peterhiroshi/cfmon:latest"
-
-    dockerfile: Dockerfile
-    use: buildx
-
-    build_flag_templates:
-      - "--pull"
-      - "--label=org.opencontainers.image.created={{.Date}}"
-      - "--label=org.opencontainers.image.title={{.ProjectName}}"
-      - "--label=org.opencontainers.image.revision={{.FullCommit}}"
-      - "--label=org.opencontainers.image.version={{.Version}}"
-      - "--platform=linux/amd64,linux/arm64"
-
-# Announce releases
-announce:
-  slack:
-    enabled: false
-    message_template: "cfmon {{ .Tag }} is out! Check it out: {{ .ReleaseURL }}"
-
-  twitter:
-    enabled: false
-    message_template: "cfmon {{ .Tag }} is out! {{ .ReleaseURL }}"
+  mode: replace
+  name_template: "v{{.Version}}"

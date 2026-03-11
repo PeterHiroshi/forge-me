@@ -63,7 +63,7 @@ cfmon config show
 
 ## 🎉 What's New
 
-### Version 0.3.0 (Unreleased)
+### Version 0.3.0
 
 - **📺 Interactive TUI Dashboard** — Real-time terminal UI with 4 tabs (Overview, Workers, Containers, Alerts)
   - Health gauge with color-coded scoring

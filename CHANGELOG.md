@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-03-11
+
+### Added
+- `cfmon tail` command for real-time log streaming from Cloudflare Workers and Containers
+- WebSocket-based Tail API integration (`internal/api/tail.go`)
+- Tail event types and JSON parsing (`internal/tail/types.go`)
+- Output formatter with pretty (colored), JSON, and compact modes (`internal/tail/formatter.go`)
+- WebSocket engine with auto-reconnect and client-side filtering (`internal/tail/engine.go`)
+- 12+ CLI flags for advanced filtering: `--status`, `--method`, `--search`, `--ip`, `--header`, `--sample-rate`, `--max-events`, `--since`, `--no-color`, `--include-logs`, `--include-exceptions`
+- `doRequestWithBody` method on API client for POST requests with JSON body
+- Comprehensive test coverage (94.8% on internal/tail package)
+
 ### Added
 - Makefile with comprehensive build targets for easier development
 - .goreleaser.yml for automated cross-platform releases
@@ -100,5 +112,6 @@ Each release should include:
 - **Minor** (0.X.0) - Added functionality in a backwards compatible manner
 - **Patch** (0.0.X) - Backwards compatible bug fixes
 
-[Unreleased]: https://github.com/PeterHiroshi/cfmon/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/PeterHiroshi/cfmon/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/PeterHiroshi/cfmon/compare/v0.3.1...v0.4.0
 [v0.1.0]: https://github.com/PeterHiroshi/cfmon/releases/tag/v0.1.0

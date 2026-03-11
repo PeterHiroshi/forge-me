@@ -55,6 +55,9 @@ cfmon containers list YOUR_ACCOUNT_ID --filter "prod" --sort cpu --limit 10
 # One-shot health check with threshold alerts
 cfmon check YOUR_ACCOUNT_ID --cpu-threshold 70
 
+# Stream real-time logs from a worker
+cfmon tail my-worker --format pretty
+
 # View configuration
 cfmon config show
 ```
@@ -62,6 +65,17 @@ cfmon config show
 ---
 
 ## 🎉 What's New
+
+### Version 0.4.0
+
+- **📡 Real-time Log Streaming (`cfmon tail`)** — Stream live logs from Cloudflare Workers and Containers
+  - WebSocket-based real-time log streaming via Cloudflare Tail API
+  - 12+ filtering flags: `--status`, `--method`, `--search`, `--ip`, `--header`, `--since`, `--sample-rate`, `--max-events`
+  - Multiple output formats: pretty (colored), JSON, compact
+  - Automatic WebSocket reconnection on disconnect
+  - Clean session management with graceful shutdown
+  - Client-side and server-side filtering
+  - More powerful than `wrangler tail`
 
 ### Version 0.3.0
 
@@ -92,6 +106,15 @@ cfmon config show
 ## ✨ Features
 
 ### Core Features
+
+#### 📡 **Real-time Log Streaming** ⭐ NEW
+- **`cfmon tail`** — Stream live logs from Workers and Containers
+- **12+ flags** for precise filtering (status, method, IP, headers, search text)
+- **3 output formats**: pretty (colored), JSON, compact
+- **WebSocket auto-reconnect** on connection drop
+- **Client-side filtering**: `--search`, `--since`, `--max-events`
+- **Server-side filtering**: `--status`, `--method`, `--ip`, `--header`, `--sample-rate`
+- More powerful than `wrangler tail`
 
 #### 📺 **Interactive TUI Dashboard** ⭐ NEW
 - **Real-time monitoring** with auto-refresh (configurable interval)
@@ -439,6 +462,41 @@ One-shot health check with threshold-based alerts
 - `--error-threshold <percent>`: Error rate warning threshold (default: 2)
 
 **Exit codes:** 0 = healthy, 1 = warnings, 2 = critical
+
+#### `cfmon tail [account-id] <worker-name>`
+Stream real-time logs from a Cloudflare Worker or Container
+
+**Flags:**
+- `--format, -f <format>`: Output format: pretty, json, compact (default: pretty)
+- `--status <codes>`: Filter by HTTP status: ok, error, or status codes
+- `--method <methods>`: Filter by HTTP method: GET, POST, etc
+- `--search <text>`: Filter logs containing this string
+- `--ip <addresses>`: Filter by client IP address
+- `--header <key:value>`: Filter by request header
+- `--sample-rate <rate>`: Sampling rate 0.0-1.0 (default: 1.0)
+- `--max-events, -n <count>`: Stop after N events
+- `--since <duration>`: Only show events after duration (e.g. 5m, 1h)
+- `--no-color`: Disable colored output
+- `--include-logs`: Show console.log() output (default: true)
+- `--include-exceptions`: Show exceptions (default: true)
+
+**Examples:**
+```bash
+# Stream all logs with colored output
+cfmon tail my-worker
+
+# JSON format for piping
+cfmon tail my-worker --format json | jq .
+
+# Filter errors only
+cfmon tail my-worker --status error
+
+# Search for specific text, limit to 100 events
+cfmon tail my-worker --search "timeout" --max-events 100
+
+# Filter by method and IP
+cfmon tail my-worker --method POST --ip 1.2.3.4
+```
 
 #### `cfmon completion <shell>`
 Generate shell completion script

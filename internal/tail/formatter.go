@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
-	"time"
 
 	"github.com/fatih/color"
 )
@@ -18,11 +17,24 @@ const (
 )
 
 type Formatter struct {
-	format OutputFormat
+	format            OutputFormat
+	noColor           bool
+	IncludeLogs       bool
+	IncludeExceptions bool
 }
 
-func NewFormatter(format OutputFormat) *Formatter {
-	return &Formatter{format: format}
+func NewFormatter(format string, noColor bool) *Formatter {
+	if noColor {
+		color.NoColor = true
+	} else {
+		color.NoColor = false
+	}
+	return &Formatter{
+		format:            OutputFormat(format),
+		noColor:           noColor,
+		IncludeLogs:       true,
+		IncludeExceptions: true,
+	}
 }
 
 func (f *Formatter) Format(event TailEvent) string {
@@ -41,18 +53,29 @@ func (f *Formatter) formatJSON(event TailEvent) string {
 	return string(jsonBytes)
 }
 
+func (f *Formatter) colorize(fn func(format string, a ...interface{}) string, format string, a ...interface{}) string {
+	if f.noColor {
+		return fmt.Sprintf(format, a...)
+	}
+	return fn(format, a...)
+}
+
 func (f *Formatter) formatCompact(event TailEvent) string {
-	status := color.GreenString("OK")
-	if event.Outcome != "ok" {
-		status = color.RedString("ERROR")
+	var status string
+	if event.Outcome == "ok" {
+		status = f.colorize(color.GreenString, "OK")
+	} else {
+		status = f.colorize(color.RedString, "ERROR")
 	}
 
-	return fmt.Sprintf("[%s] %s %s %s %s",
-		color.BlueString(time.Unix(0, event.EventTimestamp*int64(time.Millisecond)).Format(time.RFC3339)),
+	ts := event.Time().Format("15:04:05")
+
+	return fmt.Sprintf("[%s] %s %s %s %d",
+		f.colorize(color.BlueString, "%s", ts),
 		status,
-		color.YellowString(event.Event.Request.Method),
-		color.CyanString(event.Event.Request.URL),
-		color.MagentaString(fmt.Sprintf("%d", event.EventTimestamp)),
+		f.colorize(color.YellowString, "%s", event.Event.Request.Method),
+		f.colorize(color.CyanString, "%s", event.Event.Request.URL),
+		event.Event.Response.Status,
 	)
 }
 
@@ -60,38 +83,41 @@ func (f *Formatter) formatPretty(event TailEvent) string {
 	var builder strings.Builder
 
 	// Header
-	status := color.GreenString("✓ OK")
-	if event.Outcome != "ok" {
-		status = color.RedString("✗ ERROR")
+	var status string
+	if event.Outcome == "ok" {
+		status = f.colorize(color.GreenString, "✓ OK")
+	} else {
+		status = f.colorize(color.RedString, "✗ ERROR")
 	}
 
 	builder.WriteString(fmt.Sprintf("%s %s %s\n",
-		color.CyanString("➤"),
-		color.HiWhiteString(event.ScriptName),
+		f.colorize(color.CyanString, "➤"),
+		f.colorize(color.HiWhiteString, "%s", event.ScriptName),
 		status,
 	))
 
 	// Request details
-	builder.WriteString(fmt.Sprintf("  %s %s\n",
-		color.YellowString(event.Event.Request.Method),
-		color.BlueString(event.Event.Request.URL),
+	builder.WriteString(fmt.Sprintf("  %s %s [%d]\n",
+		f.colorize(color.YellowString, "%s", event.Event.Request.Method),
+		f.colorize(color.BlueString, "%s", event.Event.Request.URL),
+		event.Event.Response.Status,
 	))
 
 	// Logs
-	if len(event.Logs) > 0 {
+	if f.IncludeLogs && len(event.Logs) > 0 {
 		builder.WriteString("  Logs:\n")
 		for _, log := range event.Logs {
-			builder.WriteString(fmt.Sprintf("    • %s\n", color.WhiteString(strings.Join(log.Message, " "))))
+			builder.WriteString(fmt.Sprintf("    • %s\n", strings.Join(log.Message, " ")))
 		}
 	}
 
 	// Exceptions
-	if len(event.Exceptions) > 0 {
+	if f.IncludeExceptions && len(event.Exceptions) > 0 {
 		builder.WriteString("  Exceptions:\n")
 		for _, ex := range event.Exceptions {
-			builder.WriteString(fmt.Sprintf("    ✗ %s: %s\n", 
-				color.RedString(ex.Name), 
-				color.RedString(ex.Message),
+			builder.WriteString(fmt.Sprintf("    ✗ %s: %s\n",
+				f.colorize(color.RedString, "%s", ex.Name),
+				f.colorize(color.RedString, "%s", ex.Message),
 			))
 		}
 	}

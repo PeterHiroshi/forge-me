@@ -5,10 +5,12 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"syscall"
 	"time"
 
 	"github.com/PeterHiroshi/cfmon/internal/api"
+	"github.com/PeterHiroshi/cfmon/internal/config"
 	"github.com/PeterHiroshi/cfmon/internal/tail"
 	"github.com/spf13/cobra"
 )
@@ -29,18 +31,18 @@ More powerful than wrangler tail with:
 }
 
 var (
-	tailFormat         string
-	tailStatusFilter   []string
-	tailMethodFilter   []string
-	tailSearchFilter   string
-	tailIPFilter       []string
-	tailHeaderFilters  []string
-	tailSamplingRate   float64
-	tailMaxEvents      int
-	tailSince          string
-	tailNoColor        bool
-	tailIncludeLogs    bool
-	tailIncludeErrors  bool
+	tailFormat        string
+	tailStatusFilter  []string
+	tailMethodFilter  []string
+	tailSearchFilter  string
+	tailIPFilter      []string
+	tailHeaderFilters []string
+	tailSamplingRate  float64
+	tailMaxEvents     int
+	tailSince         string
+	tailNoColor       bool
+	tailIncludeLogs   bool
+	tailIncludeErrors bool
 )
 
 func init() {
@@ -61,31 +63,57 @@ func init() {
 }
 
 func runTail(cmd *cobra.Command, args []string) error {
+	// Validate sample rate
+	if tailSamplingRate < 0 || tailSamplingRate > 1.0 {
+		return fmt.Errorf("invalid sample rate %.2f: must be between 0.0 and 1.0", tailSamplingRate)
+	}
+
 	var accountID, workerName string
 	switch len(args) {
 	case 1:
 		workerName = args[0]
-		accountID = mustGetDefaultAccount()
+		// Try to load default account from config
+		configPath := cfgFile
+		if configPath == "" {
+			home, err := os.UserHomeDir()
+			if err != nil {
+				return fmt.Errorf("getting home directory: %w", err)
+			}
+			configPath = filepath.Join(home, ".cfmon", "config.yaml")
+		}
+		cfg, err := config.Load(configPath)
+		if err != nil && !os.IsNotExist(err) {
+			return fmt.Errorf("loading config: %w", err)
+		}
+		if cfg != nil && cfg.DefaultAccountID != "" {
+			accountID = cfg.DefaultAccountID
+		} else {
+			return fmt.Errorf("no account ID provided and no default account set")
+		}
 	case 2:
 		accountID, workerName = args[0], args[1]
 	}
 
-	apiClient := api.NewClient(mustGetAPIToken())
+	apiToken, err := getAPIToken()
+	if err != nil {
+		return err
+	}
 
-	filter := tail.TailFilter{
+	apiClient := api.NewClient(apiToken)
+
+	filter := api.TailFilter{
 		Status:       tailStatusFilter,
 		Method:       tailMethodFilter,
 		SamplingRate: tailSamplingRate,
 	}
 
 	// Parse since duration
-	var sinceTime time.Time
+	var sinceDuration time.Duration
 	if tailSince != "" {
-		duration, err := time.ParseDuration(tailSince)
+		sinceDuration, err = time.ParseDuration(tailSince)
 		if err != nil {
 			return fmt.Errorf("invalid duration: %w", err)
 		}
-		sinceTime = time.Now().Add(-duration)
 	}
 
 	tailSession, err := apiClient.CreateTail(accountID, workerName, filter)
@@ -97,38 +125,36 @@ func runTail(cmd *cobra.Command, args []string) error {
 	ctx, cancel := context.WithCancel(cmd.Context())
 	defer cancel()
 
-	format := tail.OutputFormat(tailFormat)
-	engine := tail.NewTailEngine(tailSession.URL, filter, format, tailMaxEvents)
-	engine.Start(ctx)
+	formatter := tail.NewFormatter(tailFormat, tailNoColor)
+	formatter.IncludeLogs = tailIncludeLogs
+	formatter.IncludeExceptions = tailIncludeErrors
 
-	formatter := tail.NewFormatter(format)
+	engine := tail.NewEngine(tail.EngineConfig{
+		WebSocketURL: tailSession.URL,
+		MaxEvents:    tailMaxEvents,
+		Search:       tailSearchFilter,
+		Since:        sinceDuration,
+		OnEvent: func(event tail.TailEvent) {
+			fmt.Println(formatter.Format(event))
+		},
+		OnError: func(err error) {
+			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+		},
+	})
+
 	signalChan := make(chan os.Signal, 1)
 	signal.Notify(signalChan, syscall.SIGINT, syscall.SIGTERM)
 
-	for {
+	go func() {
 		select {
-		case event := <-engine.GetEvents():
-			if event.EventTimestamp >= sinceTime.UnixNano()/int64(time.Millisecond) {
-				fmt.Println(formatter.Format(event))
-			}
-		case err := <-engine.GetErrors():
-			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 		case <-signalChan:
+			engine.Stop()
 			cancel()
-			return nil
 		case <-ctx.Done():
-			return nil
+			engine.Stop()
 		}
-	}
-}
+	}()
 
-// Placeholder functions - implement with actual config loading logic
-func mustGetDefaultAccount() string {
-	// Load from config file
-	return "default-account-id"
-}
-
-func mustGetAPIToken() string {
-	// Load from config or environment
-	return "api-token"
+	engine.Run()
+	return nil
 }

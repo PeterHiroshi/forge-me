@@ -207,7 +207,9 @@ main() {
   print_info "Install directory: ${BOLD}$INSTALL_DIR${RESET}"
 
   # Construct download URLs
-  ARCHIVE="${BINARY_NAME}_${VERSION}_${OS}_${ARCH}.tar.gz"
+  # GoReleaser archives use version without "v" prefix
+  ARCHIVE_VERSION="${VERSION#v}"
+  ARCHIVE="${BINARY_NAME}_${ARCHIVE_VERSION}_${OS}_${ARCH}.tar.gz"
   DOWNLOAD_URL="https://github.com/$REPO/releases/download/$VERSION/$ARCHIVE"
   CHECKSUM_URL="https://github.com/$REPO/releases/download/$VERSION/checksums.txt"
 

@@ -76,6 +76,16 @@ var (
 
 	filterActiveStyle = lipgloss.NewStyle().
 		Foreground(lipgloss.Color("226"))
+
+	warningStyle = lipgloss.NewStyle().
+		Foreground(lipgloss.Color("226"))
+
+	criticalStyle = lipgloss.NewStyle().
+		Foreground(lipgloss.Color("196")).
+		Bold(true)
+
+	successStyle = lipgloss.NewStyle().
+		Foreground(lipgloss.Color("46"))
 )
 
 func statusColor(status string) string {
@@ -97,5 +107,18 @@ func errorRateColor(rate float64) string {
 		return "226"
 	default:
 		return "196"
+	}
+}
+
+func severityColor(severity string) string {
+	switch severity {
+	case "warning":
+		return "226"
+	case "critical":
+		return "196"
+	case "ok":
+		return "46"
+	default:
+		return "241"
 	}
 }

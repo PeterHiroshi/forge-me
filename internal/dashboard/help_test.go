@@ -55,6 +55,14 @@ func TestHelpSuppressesQuit(t *testing.T) {
 	}
 }
 
+func TestHelpShowsFourTabs(t *testing.T) {
+	m := Model{width: 80, height: 24}
+	result := m.renderHelp()
+	if !strings.Contains(result, "1 / 2 / 3 / 4") {
+		t.Errorf("help should show 4 tab numbers, got: %s", result)
+	}
+}
+
 func TestRenderHelpContainsShortcuts(t *testing.T) {
 	m := Model{width: 80, height: 24}
 	content := m.renderHelp()

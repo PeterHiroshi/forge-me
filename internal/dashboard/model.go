@@ -10,6 +10,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/PeterHiroshi/cfmon/internal/api"
+	"github.com/PeterHiroshi/cfmon/internal/monitor"
 )
 
 // Model is the main bubbletea model for the dashboard.
@@ -31,6 +32,9 @@ type Model struct {
 	filterInput     textinput.Model
 	selectedRow     int
 	showDetail      bool
+	events          []DashboardEvent
+	prevAlerts      []monitor.Alert
+	thresholds      monitor.Thresholds
 }
 
 // NewModel creates a new dashboard model.
@@ -54,6 +58,7 @@ func NewModel(client *api.Client, accountID string, refresh time.Duration) Model
 		refreshInterval: refresh,
 		spinner:         s,
 		filterInput:     fi,
+		thresholds:      monitor.DefaultThresholds(),
 	}
 }
 
@@ -100,7 +105,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.scrollOffset = 0
 				m.selectedRow = 0
 				return m, nil
-			case msg.Type == tea.KeyRunes && len(msg.Runes) == 1 && msg.Runes[0] >= '1' && msg.Runes[0] <= '3':
+			case msg.Type == tea.KeyRunes && len(msg.Runes) == 1 && msg.Runes[0] >= '1' && msg.Runes[0] <= '4':
 				m.showDetail = false
 				m.activeTab = TabID(msg.Runes[0] - '1')
 				m.scrollOffset = 0
@@ -223,6 +228,12 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.scrollOffset = 0
 			m.selectedRow = 0
 			return m, nil
+
+		case msg.Type == tea.KeyRunes && len(msg.Runes) == 1 && msg.Runes[0] == '4':
+			m.activeTab = TabAlerts
+			m.scrollOffset = 0
+			m.selectedRow = 0
+			return m, nil
 		}
 
 	case tea.MouseMsg:
@@ -249,11 +260,35 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.data = msg.data
 		m.loading = false
 		m.err = nil
+
+		// Generate events
+		now := time.Now()
+		m.events = addEvent(m.events, DashboardEvent{
+			Time:     now,
+			Text:     fmt.Sprintf("Data refreshed — %d workers, %d containers", len(msg.data.Workers), len(msg.data.Containers)),
+			Severity: "info",
+		})
+
+		// Diff alerts
+		if m.prevAlerts != nil {
+			alertEvents := diffAlerts(m.prevAlerts, msg.data.Alerts)
+			for _, e := range alertEvents {
+				e.Time = now
+				m.events = addEvent(m.events, e)
+			}
+		}
+		m.prevAlerts = msg.data.Alerts
+
 		return m, tickCmd(m.refreshInterval)
 
 	case errMsg:
 		m.err = msg.err
 		m.loading = false
+		m.events = addEvent(m.events, DashboardEvent{
+			Time:     time.Now(),
+			Text:     fmt.Sprintf("ERROR: failed to fetch data: %v", msg.err),
+			Severity: "critical",
+		})
 		return m, tickCmd(m.refreshInterval)
 
 	case tickMsg:
@@ -310,6 +345,12 @@ func (m Model) View() string {
 			} else {
 				b.WriteString(m.renderContainers())
 			}
+		case TabAlerts:
+			if m.showDetail {
+				b.WriteString(m.renderAlertDetail())
+			} else {
+				b.WriteString(m.renderAlerts())
+			}
 		}
 	}
 
@@ -331,6 +372,12 @@ func (m Model) renderTabs() string {
 	var tabs []string
 	for i := TabID(0); i < tabCount; i++ {
 		label := fmt.Sprintf(" %d %s ", i+1, i.String())
+
+		// Add badge to Alerts tab when not active and has alerts
+		if i == TabAlerts && i != m.activeTab && m.data != nil && len(m.data.Alerts) > 0 {
+			label = fmt.Sprintf(" %d %s %d ", i+1, i.String(), len(m.data.Alerts))
+		}
+
 		if i == m.activeTab {
 			tabs = append(tabs, activeTabStyle.Render(label))
 		} else {
@@ -378,7 +425,31 @@ func (m Model) renderOverview() string {
 			cardValueStyle.Render(fmt.Sprintf("%.1f%%", m.data.ErrorRate)),
 	)
 
-	b.WriteString(lipgloss.JoinHorizontal(lipgloss.Top, workerCard, containerCard, errorCard))
+	var alertWarnings, alertCriticals int
+	for _, a := range m.data.Alerts {
+		if a.Severity == "warning" {
+			alertWarnings++
+		} else if a.Severity == "critical" {
+			alertCriticals++
+		}
+	}
+
+	alertCardColor := lipgloss.Color("46") // green
+	alertValue := "None"
+	if alertCriticals > 0 {
+		alertCardColor = lipgloss.Color("196")
+		alertValue = fmt.Sprintf("%d warn  %d crit", alertWarnings, alertCriticals)
+	} else if alertWarnings > 0 {
+		alertCardColor = lipgloss.Color("226")
+		alertValue = fmt.Sprintf("%d warn", alertWarnings)
+	}
+
+	alertCard := cardStyle.Render(
+		cardTitleStyle.Render("Alerts") + "\n" +
+			lipgloss.NewStyle().Bold(true).Foreground(alertCardColor).Render(alertValue),
+	)
+
+	b.WriteString(lipgloss.JoinHorizontal(lipgloss.Top, workerCard, containerCard, errorCard, alertCard))
 
 	return b.String()
 }
@@ -391,7 +462,7 @@ func (m Model) renderStatusBar() string {
 	} else if m.filterMode {
 		parts = append(parts, "Enter: confirm  Esc: cancel")
 	} else {
-		parts = append(parts, "q: quit  r: refresh  Tab/1-3: switch tabs")
+		parts = append(parts, "q: quit  r: refresh  Tab/1-4: switch tabs")
 		if m.activeTab != TabOverview {
 			parts = append(parts, "j/k: scroll  /: filter  Enter: detail")
 		}
@@ -443,6 +514,11 @@ func (m Model) currentItemCount() int {
 			return len(filterContainers(m.data.Containers, m.filterText))
 		}
 		return len(m.data.Containers)
+	case TabAlerts:
+		if m.filterText != "" {
+			return len(filterAlerts(m.data.Alerts, m.filterText))
+		}
+		return len(m.data.Alerts)
 	default:
 		return 0
 	}

@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/PeterHiroshi/cfmon/internal/api"
+	"github.com/PeterHiroshi/cfmon/internal/monitor"
 )
 
 func TestFilterWorkersByName(t *testing.T) {
@@ -108,5 +109,37 @@ func TestRenderWorkersWithFilterShowsFilteredRows(t *testing.T) {
 	}
 	if !strings.Contains(result, "api-internal") {
 		t.Error("filtered view should contain api-internal")
+	}
+}
+
+func TestFilterAlerts(t *testing.T) {
+	alerts := []monitor.Alert{
+		{ResourceName: "api-proxy", Metric: "error_rate", Severity: "warning"},
+		{ResourceName: "db-svc", Metric: "memory", Severity: "critical"},
+		{ResourceName: "web-app", Metric: "cpu", Severity: "warning"},
+	}
+
+	// Filter by resource name
+	result := filterAlerts(alerts, "api")
+	if len(result) != 1 {
+		t.Errorf("filter 'api': got %d alerts, want 1", len(result))
+	}
+
+	// Filter by metric name
+	result = filterAlerts(alerts, "memory")
+	if len(result) != 1 {
+		t.Errorf("filter 'memory': got %d alerts, want 1", len(result))
+	}
+
+	// Empty filter returns all
+	result = filterAlerts(alerts, "")
+	if len(result) != 3 {
+		t.Errorf("empty filter: got %d alerts, want 3", len(result))
+	}
+
+	// No match
+	result = filterAlerts(alerts, "xyz")
+	if len(result) != 0 {
+		t.Errorf("filter 'xyz': got %d alerts, want 0", len(result))
 	}
 }

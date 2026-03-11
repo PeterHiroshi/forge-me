@@ -44,3 +44,20 @@ func TestErrorRateColor(t *testing.T) {
 		}
 	}
 }
+
+func TestSeverityColor(t *testing.T) {
+	tests := []struct {
+		severity string
+		want     string
+	}{
+		{"warning", "226"},
+		{"critical", "196"},
+		{"ok", "46"},
+		{"unknown", "241"},
+	}
+	for _, tt := range tests {
+		if got := severityColor(tt.severity); got != tt.want {
+			t.Errorf("severityColor(%q) = %q, want %q", tt.severity, got, tt.want)
+		}
+	}
+}

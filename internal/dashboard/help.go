@@ -6,8 +6,8 @@ func (m Model) renderHelp() string {
 	sections := "" +
 		"Navigation\n" +
 		"  Tab / Shift-Tab   Switch tabs\n" +
-		"  1 / 2 / 3         Jump to tab\n" +
-		"  j/k / ↑/↓         Move cursor / scroll\n" +
+		"  1 / 2 / 3 / 4    Jump to tab\n" +
+		"  j/k / up/down     Move cursor / scroll\n" +
 		"\n" +
 		"Actions\n" +
 		"  r                 Refresh data\n" +
@@ -15,7 +15,7 @@ func (m Model) renderHelp() string {
 		"  ?                 Toggle help\n" +
 		"\n" +
 		"Interactive\n" +
-		"  /                 Filter workers/containers\n" +
+		"  /                 Filter (workers/containers/alerts)\n" +
 		"  Enter             Open detail view\n" +
 		"  Esc               Back / dismiss\n"
 

@@ -4,6 +4,9 @@ import (
 	"fmt"
 	"testing"
 	"time"
+
+	"github.com/PeterHiroshi/cfmon/internal/api"
+	"github.com/PeterHiroshi/cfmon/internal/monitor"
 )
 
 func TestDataMsg(t *testing.T) {
@@ -41,5 +44,45 @@ func TestDefaultRefreshInterval(t *testing.T) {
 func TestMinRefreshInterval(t *testing.T) {
 	if MinRefreshInterval != 5*time.Second {
 		t.Errorf("MinRefreshInterval = %v, want 5s", MinRefreshInterval)
+	}
+}
+
+func TestFetchDataIncludesAlerts(t *testing.T) {
+	data := &DashboardData{
+		Workers: []api.Worker{
+			{Name: "high-err", Requests: 100, Errors: 10}, // 10% error rate > 2% threshold
+		},
+		Containers: []api.Container{
+			{Name: "c1", CPUMS: 100, MemoryMB: 64},
+		},
+	}
+	th := monitor.DefaultThresholds()
+	alerts := monitor.EvaluateWorkers(data.Workers, th)
+	data.Alerts = alerts
+
+	if len(data.Alerts) == 0 {
+		t.Error("expected alerts for high error rate worker")
+	}
+	if data.Alerts[0].ResourceName != "high-err" {
+		t.Errorf("alert resource = %q, want high-err", data.Alerts[0].ResourceName)
+	}
+}
+
+func TestAlertsSortedCriticalsFirst(t *testing.T) {
+	alerts := []monitor.Alert{
+		{Severity: "warning", ResourceName: "b"},
+		{Severity: "critical", ResourceName: "a"},
+		{Severity: "warning", ResourceName: "a"},
+		{Severity: "critical", ResourceName: "b"},
+	}
+	sorted := sortAlerts(alerts)
+	if sorted[0].Severity != "critical" {
+		t.Errorf("first alert should be critical, got %q", sorted[0].Severity)
+	}
+	if sorted[1].Severity != "critical" {
+		t.Errorf("second alert should be critical, got %q", sorted[1].Severity)
+	}
+	if sorted[0].ResourceName != "a" {
+		t.Errorf("first critical should be 'a', got %q", sorted[0].ResourceName)
 	}
 }

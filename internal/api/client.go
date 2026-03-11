@@ -1,6 +1,7 @@
 package api
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -60,6 +61,51 @@ func (c *Client) doRequest(method, path string, result interface{}) error {
 
 	if result != nil {
 		if err := json.Unmarshal(body, result); err != nil {
+			return fmt.Errorf("parsing response: %w", err)
+		}
+	}
+
+	return nil
+}
+
+// doRequestWithBody performs an HTTP request with a JSON body to the Cloudflare API
+func (c *Client) doRequestWithBody(method, path string, body interface{}, result interface{}) error {
+	url := c.baseURL + path
+
+	var reqBody io.Reader
+	if body != nil {
+		jsonBody, err := json.Marshal(body)
+		if err != nil {
+			return fmt.Errorf("marshaling request body: %w", err)
+		}
+		reqBody = bytes.NewReader(jsonBody)
+	}
+
+	req, err := http.NewRequest(method, url, reqBody)
+	if err != nil {
+		return fmt.Errorf("creating request: %w", err)
+	}
+
+	req.Header.Set("Authorization", "Bearer "+c.token)
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return fmt.Errorf("executing request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	respBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return fmt.Errorf("reading response: %w", err)
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("API error: status %d, body: %s", resp.StatusCode, string(respBody))
+	}
+
+	if result != nil {
+		if err := json.Unmarshal(respBody, result); err != nil {
 			return fmt.Errorf("parsing response: %w", err)
 		}
 	}
